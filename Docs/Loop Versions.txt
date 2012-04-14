@@ -1,0 +1,16 @@
+Loop not unrolled:
+
+for(int i = 16; i>0; i = i-1)
+{
+    x[i] = x[i] + 4;
+}
+
+
+Loop unrolled:
+for(int i = 16; i>0; i = i - 4)
+{
+    x[i] = x[i] + 4;
+    x[i-1] = x[i-1] + 4;
+    x[i-2] = x[i-2] + 4;
+    x[i-3] = x[i-3] + 4;
+}

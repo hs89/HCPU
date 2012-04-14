@@ -1,0 +1,5 @@
+:main;
+LDI R0,FF;
+LDI R1,FF;
+MUL R0,R1;
+END;

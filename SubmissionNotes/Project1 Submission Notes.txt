@@ -1,0 +1,47 @@
+Holden Sandlar
+Advanced Computer Architecture
+Completed 4-3-2012
+HCPU - MIPS SIMULATOR
+
+All instructions are working except for SIMD, MUL, DIV
+
+There are a number of console based commands to run the simulator detailed both
+in the README file and also if you type help or ? at the simulator prompt
+
+The short version of the command details is that there are several types of 
+simulator prompt commands I have implemented for ease of debugging and control.
+It is possible to toggle debugging of particular types of operations during 
+simulation (see the debug commands for more info on this) but by default
+all debug toggle switches are true. 
+
+This means that as you step through each machine cycles (using command "n")
+you will see a snapshot of what is in each stage of the pipeline, where
+the program counter is, and what is currently held in each register.
+If you wish to run the entire program and look only at the last state
+of the system, as well as desired statistics (metrics) use command "c".
+
+Annotated assembly code can be found in file: "FULL-annotated.asm"
+Annotated machine  code can be found in file: "FULL-MC-Annotated.MC"
+
+Executable can be found at: HCPU.exe
+
+When the Processor simulator starts it will load it's program memory
+from the file "MACHINE_CODE" which is a non-annotated version of
+"FULL-MC-Annotated.MC"
+
+*Quick note about the program:
+	Program memory is loaded with an interrupt vector at 0xFF pointing to
+	an ISR. For interrupts, the pipeline is fully cleared of instructions
+	then state of the system is stored, the interrupt service routine
+	pointed to by the interrupt vector is called and when the interrupt
+	service routine is finished the state of the system is restored.
+	Due to my implementation of ISR's, the interrupt service routine
+	cannot be stepped through, but is executed in one large stream.
+	If you want to see what the ISR did, make sure your terminal buffer
+	is long enough that you will be able to scroll back up through the ISR
+	execution.
+
+Please take a look at the !!README.txt file in the project directory 
+for more details
+
+Enjoy!

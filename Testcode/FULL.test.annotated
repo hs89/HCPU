@@ -1,0 +1,257 @@
+20 - LD R0, IMM
+01 - #1
+04 - CPY R1, R0
+81 - ADD R0, R1
+14 - SWAP R1, R0
+35 - OUT - IO[IMM] = R1
+44 - IMM
+28 - LD R2, IMM
+02 - #2
+88 - ADD R2, R0
+2C - LD R3, IMM
+09 - IMM
+9E - SUB R3, R2
+AD - AND R3, R2
+BD - CEQ R3, R1
+FC - NOT R3
+CB - CLT R2, R3
+5F - CALL :testSHIFT
+TESTSHIFT ADDRESS
+50 - JUMP UNCONDITIONAL :control
+CONTROL ADDRESS
+
+
+
+
+-start of :control
+20 - LD R0, IMM
+FF - IMM
+24 - LD R1, IMM
+FF - IMM
+38 - IN R2, IMM
+44 - IMM
+81 - ADD R0, R1
+58 - BRANCH IF CARRY
+CONTROL2 ADDRESS
+20 - LD R0, IMM -- should never be here
+00 - IMM
+28 - LD R2, IMM -- should never be here
+00 - IMM
+
+
+
+-start of :control2
+28 - LD R2, IMM
+AA - IMM
+2B - ST R2, R2, 0x00
+80 - R2 | 0x00
+24 - LD R1, IMM
+A0 - IMM
+END
+
+
+
+-start of :testshift
+20 - LD R0, IMM
+01 - IMM
+40 - SHLA R0
+41 - SHLL R0
+24 - LD R1, IMM
+FF - IMM
+46 - SHRA R1
+28 - LD R2, IMM
+FF - IMM
+4B - SHRL R2
+4A - SHRA R2
+68 - RET SUBROUTINE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- start of :ISR
+20 - LD R0, IMM
+01 - IMM
+24 - LD R1, IMM
+02 - IMM
+81 - ADD R0, R1
+68 - RETI
+
+
+
+
+
+
+
+
+
+0
+0
+0
+EA

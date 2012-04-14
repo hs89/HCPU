@@ -1,0 +1,55 @@
+Holden Sandlar
+Advanced Computer Architecture
+Completed 4/10/12
+HCPU Assembler
+
+For part 3 of this assignment (the two paper responses) see:
+"Docs/Stretch.docx"
+and
+"Docs/System360.docx"
+
+Part 4 (the fun stuff):
+
+*Before getting into the details of the assembler I would like to note changes made to HCPU:
+    1.  Several bugs have been found in the first version of HCPU and those bugs have been
+        repaired. As a result there is much better handling of data dependence and appropriate
+        stalling of the pipeline.
+    2.  New command line interface commands have been added:
+        a. pdm - print data memory
+        b. ni <number> - clock <number> machine cycles
+    3.  Code file to assemble/run can be specified on the command line (see instructions below for
+        recreating loop results or assembler readme file for more details)
+
+For the user manual of the assembler see:
+"!!ASSEMBLER README.txt"
+    *The user manual (readme) is fairly detailed about the syntax I have required/allowed for assembly code.
+
+Simulation results of loops (rolled and unrolled):
+*NOTE: I initialize all array elements to 0x05 prior to execution of the loop (easily seen in .asm files)
+
+For c code of loop versions see file:
+"Docs/Loop Versions.txt"
+
+For assembly code see files:
+"Assembly/loop.asm"
+"Assembly/loop_unrolled.asm"
+
+For machine code generated based on loop assembly files see:
+"MachineCode/LOOP_MACHINE_CODE"
+"MachineCode/LOOP_UNROLLED_MACHINE_CODE"
+
+For tabulation and graphing of results from rolled and unrolled code see:
+"Docs/LoopUnrollingResults.xlsx"
+
+Instructions to replicate results of rolled and unrolled simulations:
+
+1. Open command prompt and change current directory to the HCPU folder
+2. Start HCPU with command line option Assembly/loop.asm
+    a. C:\HCPU> HCPU.exe Assembly/loop.asm
+    b. C:\HCPU> HCPU.exe Assembly/loop_unrolled.asm
+3. After HCPU assembles the loop.asm and drops you at the prompt, press "c" to
+   run the simulator until the end of the program and view desired metrics
+4. Repeat steps 2-3 for the file "Assembly/loop_unrolled.asm" (shown in 2.b)
+5. Feel free to type command "pdm" before/after execution to view the contents of the data memory
+
+Enjoy!

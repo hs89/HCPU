@@ -20,6 +20,7 @@ class Stage
              unsigned char result1;
              unsigned char result2;
              unsigned int  state;
+             int speculative;
              int reg1,reg2;
              int stalled;
              int number;

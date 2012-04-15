@@ -20,6 +20,7 @@ Stage::Stage(int num)
      cyclesRemaining = -1;
      stalled = 0;
      reg1=reg2=-1;
+     speculative = 0;
 }
 
 void Stage::print()
@@ -48,4 +49,5 @@ void Stage::reset()
      data_in2 = 0x00;
      state = 0;
      cyclesRemaining = reg1 = reg2 = -1;
+     speculative = 0;
 }

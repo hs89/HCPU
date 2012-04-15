@@ -29,7 +29,7 @@ bool REGISTER_DEBUG = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "code.asm";
+string code_file = "Assembly/loop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -40,6 +40,7 @@ unsigned char PC = 0x00; // Program Memory Counter
 unsigned char DC = 0x00; // Data Memory Counter
 unsigned char SP = 0xFF; // Stack Pointer
 unsigned int Cycles[16]; //Cycles per instruction (index is opcode)
+Stage Pipeline[5] = {Stage(1),Stage(2),Stage(3),Stage(4),Stage(5)};
 
 deque <int> StagesExecuting;
 
@@ -55,6 +56,7 @@ int RUNNING = 0;
 int RUN_FOR = 0;
 int PMEND;
 int instructionClocked = 0;
+bool SPECULATE = 0;
 /*     END GLOBAL FLAG DEFS   */
 
 /* FUNCTION PROTOTYPE DEFS */
@@ -98,7 +100,6 @@ bool checkStageRegisterDependence(int,int); //Checks to see if a register number
 /* GLOBAL VAR DEFS */
 Registers RF(register_file); //Create a register file
 Stats Statistics; //Create a statistics object
-Stage s1(1), s2(2), s3(3), s4(4), s5(5); //Create pipeline stages
 /* END GLOBAL VAR DEFS */
 
 int main(int argc, char * argv[])
@@ -326,25 +327,12 @@ void clockPipeline()
 
      Statistics.MC_CNT++;
      
-     clockStage(s1);
-     if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
-     resetAnyFinishedStages(); 
-     
-     clockStage(s2);
-     if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
-     resetAnyFinishedStages(); 
-     
-     clockStage(s3);
-     if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
-     resetAnyFinishedStages(); 
-     
-     clockStage(s4);
-     if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
-     resetAnyFinishedStages(); 
-     
-     clockStage(s5);
-     instructionClocked = 0; 
-     resetAnyFinishedStages();
+     for(int i = 0;i<5;i++)
+     {
+             clockStage(Pipeline[i]);
+             if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
+             resetAnyFinishedStages();
+     }
      if(anyStageStalled()) Statistics.STALL_CNT++;
       
      if(PIPE_DEBUG) pipePrint();
@@ -368,7 +356,7 @@ void clockStage(Stage & stagenum)
               break;
          case 1:
               //Stage in instructionFetch/Decode
-              cout<<"In the clockStage switch for instruction Fetch ... how?"<<endl;
+              cout<<"In the clockStage switch for instruction Fetch ... how? iF already happened"<<endl;
               break;
          case 2:
               //Stage in Data Operand Fetch
@@ -481,39 +469,18 @@ void iF(Stage & stagenum)
                   //SIMD
                   //TODO: Implement Later
                   break;
-             case 0x08:
-                  //ADD
+             case 0x08://ADD
+             case 0x09://SUB
+             case 0x0A://AND
+             case 0x0B://CEQ
+             case 0x0C://CLT
+             case 0x0F://NOT
                   stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
                   break;
-             case 0x09:
-                  //SUB
-                  stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
-                  break;
-             case 0x0A:
-                  //AND
-                  stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
-                  break;
-             case 0x0B:
-                  //CEQ
-                  stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
-                  break;
-             case 0x0C:
-                  //CLT
-                  stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
-                  break;
-             case 0x0D:
-                  //MUL
+             case 0x0D://MUL
+             case 0x0E://DIV
                   stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
                   stagenum.reg2 = (int)((stagenum.operand2&0x03));
-                  break;
-             case 0x0E:
-                  //DIV
-                  stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
-                  stagenum.reg2 = (int)((stagenum.operand2&0x03));
-                  break;
-             case 0x0F:
-                  //NOT
-                  stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
                   break;
       }
 }
@@ -619,38 +586,13 @@ void DOF(Stage & stagenum)
                   //SIMD
                   //TODO: Implement Later
                   break;
-             case 0x08:
-                  //ADD
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                  stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
-                  break;
-             case 0x09:
-                  //SUB
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                  stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
-                  break;
-             case 0x0A:
-                  //AND
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                  stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
-                  break;
-             case 0x0B:
-                  //CEQ
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                  stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
-                  break;
-             case 0x0C:
-                  //CLT
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                  stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
-                  break;
-             case 0x0D:
-                  //MUL
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                  stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
-                  break;
-             case 0x0E:
-                  //DIV
+             case 0x08://ADD
+             case 0x09://SUB
+             case 0x0A://AND
+             case 0x0B://CEQ
+             case 0x0C://CLT
+             case 0x0D://MUL
+             case 0x0E://DIV
                   stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
                   stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
                   break;
@@ -863,29 +805,6 @@ void MWB(Stage & stagenum)
                        printf("Wrote %02X to IO[%02X]",stagenum.result1,stagenum.operand2);
                        break;
               }
-              break;
-         case 0x05:
-              //JMP/BRANCH
-              
-              break;
-         case 0x06:
-              //RET/RETI
-              
-              break;
-         case 0x07:
-              //SIMD
-              
-              break;
-         case 0x0D:
-              //MUL
-              
-              break;
-         case 0x0E:
-              //DIV
-              //TODO: Implement Later
-              break;
-         case 0x0F:
-              //NOT
               break;
       }
 }
@@ -1226,25 +1145,7 @@ int stallStageUntilAllOtherStagesFinished(int stagenumber)
               if(i != stagenumber)
               {
                    //check if the stage is complete, if not.. stall
-                   
-                   switch(i)
-                   {
-                       case 1:
-                            if(s1.state != 0) needtostall = 1;
-                            break;
-                       case 2:
-                            if(s2.state != 0) needtostall = 1;
-                            break;
-                       case 3:
-                            if(s3.state != 0) needtostall = 1;
-                            break;
-                       case 4:
-                            if(s4.state != 0) needtostall = 1;
-                            break;
-                       case 5:
-                            if(s5.state != 0) needtostall = 1;
-                            break;
-                   }
+                   if(Pipeline[i-1].state != 0) needtostall = 1;
               }
       }
       if(needtostall == 1) return 1;
@@ -1252,25 +1153,8 @@ int stallStageUntilAllOtherStagesFinished(int stagenumber)
 }
 bool checkStageRegisterDependence(int snum, int rnum)
 {
-     switch(snum)
-     {
-          case 1:
-               if(s1.reg1 == rnum || s1.reg2 == rnum) return true;
-               break;
-          case 2:
-               if(s2.reg1 == rnum || s2.reg2 == rnum) return true;
-               break;
-          case 3:
-               if(s3.reg1 == rnum || s3.reg2 == rnum) return true;
-               break;
-          case 4:
-               if(s4.reg1 == rnum || s4.reg2 == rnum) return true;
-               break;
-          case 5:
-               if(s5.reg1 == rnum || s5.reg2 == rnum) return true;
-               break;
-     }
-     return false;
+     if(Pipeline[snum-1].reg1 == rnum || Pipeline[snum-1].reg2 == rnum) return true;
+     else return false;
 }
 
 bool determineIfDependent(int index, char regnum)
@@ -1289,11 +1173,10 @@ bool determineIfDependent(int index, char regnum)
 
 void resetAnyFinishedStages()
 {
-     if(s1.state == 6) resetStage(s1);
-     if(s2.state == 6) resetStage(s2);
-     if(s3.state == 6) resetStage(s3);
-     if(s4.state == 6) resetStage(s4);
-     if(s5.state == 6) resetStage(s5);
+     for(int i = 0;i<5;i++)
+     {
+             if(Pipeline[i].state == 6) resetStage(Pipeline[i]);
+     }
 }
 
 void resetStage(Stage & snum)
@@ -1320,30 +1203,24 @@ void printStageQueue()
 }
 bool allStagesComplete()
 {
-     if(s1.state != 0 || s2.state != 0 || s3.state != 0 || s4.state != 0 || s5.state != 0)
+     for(int i = 0;i<5;i++)
      {
-         return false;
+             if(Pipeline[i].state != 0) return false;
      }
-     else
-     {
-         return true;
-     }
+     return true;
 }
 
 bool anyStageStalled()
 {
-     if(s1.stalled == 1 || s2.stalled == 1 || s3.stalled == 1 || s4.stalled == 1 || s5.stalled == 1)
+     for(int i = 0;i<5;i++)
      {
-         return true;
+             if(Pipeline[i].stalled == 1) return true;
      }
-     else
-     {
-         return false;
-     }
+     return false;
 }
 bool pipelineFull()
 {
-     if(s1.state != 0 && s2.state != 0 && s3.state != 0 && s4.state != 0 && s5.state != 0) return true;
+     if(Pipeline[0].state != 0 && Pipeline[1].state != 0 && Pipeline[2].state != 0 && Pipeline[3].state != 0 && Pipeline[4].state != 0) return true;
      else return false;     
 }     
 void finishPipelineExecution()
@@ -1482,11 +1359,11 @@ void pipePrint()
 {    
      
      cout<<"\tStage 1\t\tStage2\t\tStage3\t\tStage4\t\tStage5"<<endl;
-     cout<<"Opcode: "<<hex<<(int)s1.opcode<<"\t\t"<<(int)s2.opcode<<"\t\t"<<(int)s3.opcode<<"\t\t"<<(int)s4.opcode<<"\t\t"<<(int)s5.opcode<<endl;
-     cout<<"State : "<<stateNumToString(s1)<<"\t\t"<<stateNumToString(s2)<<"\t\t"<<stateNumToString(s3)<<"\t\t"<<stateNumToString(s4)<<"\t\t"<<stateNumToString(s5)<<endl;
-     cout<<"IW1   : "<<hex<<(int)s1.operand1<<"\t\t"<<(int)s2.operand1<<"\t\t"<<(int)s3.operand1<<"\t\t"<<(int)s4.operand1<<"\t\t"<<(int)s5.operand1<<endl;
-     cout<<"IW2   : "<<hex<<(int)s1.operand2<<"\t\t"<<(int)s2.operand2<<"\t\t"<<(int)s3.operand2<<"\t\t"<<(int)s4.operand2<<"\t\t"<<(int)s5.operand2<<endl;
-     cout<<"Cycles: "<<dec<<s1.cyclesRemaining<<"\t\t"<<s2.cyclesRemaining<<"\t\t"<<s3.cyclesRemaining<<"\t\t"<<s4.cyclesRemaining<<"\t\t"<<s5.cyclesRemaining<<endl;
+     cout<<"Opcode: "<<hex<<(int)Pipeline[0].opcode<<"\t\t"<<(int)Pipeline[1].opcode<<"\t\t"<<(int)Pipeline[2].opcode<<"\t\t"<<(int)Pipeline[3].opcode<<"\t\t"<<(int)Pipeline[4].opcode<<endl;
+     cout<<"State : "<<stateNumToString(Pipeline[0])<<"\t\t"<<stateNumToString(Pipeline[1])<<"\t\t"<<stateNumToString(Pipeline[2])<<"\t\t"<<stateNumToString(Pipeline[3])<<"\t\t"<<stateNumToString(Pipeline[4])<<endl;
+     cout<<"IW1   : "<<hex<<(int)Pipeline[0].operand1<<"\t\t"<<(int)Pipeline[1].operand1<<"\t\t"<<(int)Pipeline[2].operand1<<"\t\t"<<(int)Pipeline[3].operand1<<"\t\t"<<(int)Pipeline[4].operand1<<endl;
+     cout<<"IW2   : "<<hex<<(int)Pipeline[0].operand2<<"\t\t"<<(int)Pipeline[1].operand2<<"\t\t"<<(int)Pipeline[2].operand2<<"\t\t"<<(int)Pipeline[3].operand2<<"\t\t"<<(int)Pipeline[4].operand2<<endl;
+     cout<<"Cycles: "<<dec<<Pipeline[0].cyclesRemaining<<"\t\t"<<Pipeline[1].cyclesRemaining<<"\t\t"<<Pipeline[2].cyclesRemaining<<"\t\t"<<Pipeline[3].cyclesRemaining<<"\t\t"<<Pipeline[4].cyclesRemaining<<endl;
 }
 
 string stateNumToString(Stage num)

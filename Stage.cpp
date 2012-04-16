@@ -21,6 +21,7 @@ Stage::Stage(int num)
      stalled = 0;
      reg1=reg2=-1;
      hasop1 = hasop2 = false;
+     dfwd = 0;
 }
 
 void Stage::print()
@@ -33,6 +34,8 @@ void Stage::print()
         cout<<"Cycles Left = "<<cyclesRemaining<<endl;
         cout<<"Operand 1 = "<<(int)operand1<<endl;
         cout<<"Operand 2 = "<<(int)operand2<<endl;
+        printf("Data_in1 = %02X\n",data_in1);
+        printf("Data_in2 = %02X\n",data_in2);
         cout<<"Result 1 = "<<(int)result1<<endl;
         cout<<"Result 2 = "<<(int)result2<<endl;
     }
@@ -51,4 +54,5 @@ void Stage::reset()
      cyclesRemaining = reg1 = reg2 = -1;
      speculative = 0;
      hasop1 = hasop2 = false;
+     dfwd = 0;
 }

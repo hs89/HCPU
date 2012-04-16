@@ -30,7 +30,7 @@ bool DEBUG_DFWD = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "code.asm";
+string code_file = "Assembly/loop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -255,6 +255,18 @@ int main(int argc, char * argv[])
            else if(command == "pdm")
            {
                 printDataMemory();
+                continue;
+           }
+           else if(command == "pstage")
+           {
+                int tempinput;
+                cin>>tempinput;
+                Pipeline[tempinput-1].print();
+                continue;
+           }
+           else if(command == "psq")
+           {
+                printStageQueue();
                 continue;
            }
            else if(command == "pf")
@@ -526,8 +538,7 @@ void DOF(Stage & stagenum)
           stagenum.stalled = 0;
      }
      if(stagenum.stalled == 1)
-     {
-         
+     {   
          return;
      }
      else
@@ -559,7 +570,7 @@ void DOF(Stage & stagenum)
                       case 0x02:
                            //Load Displacement
                            if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand2 & 0xC0)>>6);
-                           if(!stagenum.hasop2) stagenum.data_in2 = stagenum.operand2 & 0x3F;
+                           stagenum.data_in2 = stagenum.operand2 & 0x3F;
                            break;
                       case 0x03:
                            //Store Displacement
@@ -667,7 +678,7 @@ void execute(Stage & stagenum)
                        break;
                   case 0x02:
                        //Load Displacement
-                       stagenum.result1 = stagenum.data_in1 + stagenum.data_in2; //Computing MAeff
+                       stagenum.result1 = DM[stagenum.data_in1 + stagenum.data_in2]; //Computing MAeff
                        break;
                   case 0x03:
                        //Store Displacement
@@ -819,7 +830,7 @@ void MWB(Stage & stagenum)
                   case 0x03:
                        //Store Displacement
                        DM[stagenum.result2] = stagenum.result1;
-                       printf("Stored %02X to DM[%02X]",stagenum.result1,stagenum.result2);
+                       printf("Stored %02X to DM[%02X]\n",stagenum.result1,stagenum.result2);
                        break;
               }
               break;
@@ -834,7 +845,7 @@ void MWB(Stage & stagenum)
                   case 0x01:
                        //Output
                        IO[stagenum.operand2] = stagenum.result1;
-                       printf("Wrote %02X to IO[%02X]",stagenum.result1,stagenum.operand2);
+                       printf("Wrote %02X to IO[%02X]\n",stagenum.result1,stagenum.operand2);
                        break;
               }
               break;
@@ -871,8 +882,8 @@ void WB(Stage & stagenum)
                        break;
                   case 0x02:
                        //Load Displacement
-                       printf("Loaded DM[%02X] = %02X",stagenum.result1,DM[stagenum.result1]);
-                       RF.setRegister((stagenum.operand1 & 0x0C)>>2, DM[stagenum.result1]);
+                       //printf("Loaded DM[%02X] = %02X\n",stagenum.result1, stagenum.result1);
+                       RF.setRegister((stagenum.operand1 & 0x0C)>>2, stagenum.result1);
                        break;
                   case 0x03:
                        //Store Displacement
@@ -886,7 +897,7 @@ void WB(Stage & stagenum)
                   case 0x00:
                        //Input
                        RF.setRegister((stagenum.operand1 & 0x0C)>>2, stagenum.result1);
-                       printf("Read %02X from IO[%02X]",RF.getRegister((stagenum.operand1&0x0C)>>2),stagenum.operand2);
+                       printf("Read %02X from IO[%02X]\n",RF.getRegister((stagenum.operand1&0x0C)>>2),stagenum.operand2);
                        break;
                   case 0x01:
                        //Output
@@ -1013,9 +1024,9 @@ bool checkDependence(Stage & stagenum)
                   case 0x02:
                        //Load Displacement
                        dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
-                       dep_on_op2 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
+                       //dep_on_op2 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
                        if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
-                       if(dep_on_op2) op2regnum = ((stagenum.operand2&0xC0)>>6);
+                       //if(dep_on_op2) op2regnum = ((stagenum.operand2&0xC0)>>6);
                        break;
                   case 0x03:
                        //Store Displacement
@@ -1062,10 +1073,10 @@ bool checkDependence(Stage & stagenum)
          case 0x0D://MUL
          case 0x0E://DIV
          case 0x01://SWAP
-              dep_on_op1 = determineIfDependent(index, stagenum.operand1 & 0x03);
-              dep_on_op2 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
-              if(dep_on_op1) op1regnum = (stagenum.operand1&0x03);
-              if(dep_on_op2) op2regnum = ((stagenum.operand1&0x0C)>>2);
+              dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+              dep_on_op2 = determineIfDependent(index, (stagenum.operand1 & 0x03));
+              if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+              if(dep_on_op2) op2regnum = (stagenum.operand1&0x03);
               break;
       }
       
@@ -1088,15 +1099,17 @@ bool checkDependence(Stage & stagenum)
 bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_operand)
 {
      //The return value should be false if data was forwarded -- represents no data dependency
-     for(int i = index+1; i < StagesExecuting.size(); i++)
+     //for(int i = index+1; i < StagesExecuting.size(); i++)
+     for(int i = index+1; i>0;i--)
      {
              if(Pipeline[StagesExecuting[i]-1].state > 3)
              {
                   if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||
-                     Pipeline[StagesExecuting[i]-1].reg2 == regnum)
+                     Pipeline[StagesExecuting[i]-1].reg2 == regnum  )
                   {
                       //Data forward is possible
                       forwardData(stagenum, Pipeline[StagesExecuting[i]-1], regnum, which_operand);
+                      stagenum.dfwd = 1;
                       return false;
                   }
                   else
@@ -1112,9 +1125,9 @@ void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
 {
      //Basically want to write the result for regnum of origin into temp_data{which_operand} of dest
      //after we've written an operand make sure to flag dest.hasop{which_operand} as true
-     if(DEBUG_DFWD) cout<<"Data foward regnum "<<regnum<<" from stage "<<origin.number<<" to "<<dest.number<<endl;
      //Should look at the opcode to figure out how to forward the appropriate data
      char data;
+     cout<<"Doing a data forward... the origin is in state "<<origin.state<<endl;
      switch(origin.opcode & 0xF0)
      {
           case 0x00: //CPY
@@ -1172,6 +1185,8 @@ void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
           dest.data_in2 = data;
           dest.hasop2 = true;
      }
+     if(DEBUG_DFWD) cout<<"Data foward regnum "<<regnum<<" from stage "<<origin.number<<" to "<<dest.number<<" as operand "<<which_operand;
+     if(DEBUG_DFWD) printf(" -- Forwarded data of %02X\n",data);
 }
 
 int stallStageUntilAllOtherStagesFinished(int stagenumber)

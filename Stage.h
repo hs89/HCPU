@@ -21,6 +21,7 @@ class Stage
              unsigned char result2;
              unsigned int  state;
              bool hasop1,hasop2;
+             int dfwd;
              int speculative;
              int reg1,reg2;
              int stalled;

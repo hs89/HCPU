@@ -30,7 +30,7 @@ bool DEBUG_DFWD = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/loop_unrolled.asm";
+string code_file = "Assembly/loop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -685,12 +685,14 @@ void execute(Stage & stagenum)
          case 0x00:
               //CPY
               {
+                   resetFlags();
                    stagenum.result1 = stagenum.data_in1;
               }
               break;
          case 0x01:
               //SWAP -- this op should really take 2 MC's to execute
               {
+                  resetFlags();
                   char temp = stagenum.data_in1;
                   stagenum.result1 = stagenum.data_in2;
                   stagenum.result2 = temp;
@@ -721,6 +723,7 @@ void execute(Stage & stagenum)
               break;
          case 0x03:
               //IN/OUT
+              resetFlags();
               switch(stagenum.operand1 & 0x01)
               {
                   case 0x00:
@@ -734,6 +737,7 @@ void execute(Stage & stagenum)
               break;
          case 0x04:
               //SHIFT
+              resetFlags();
               switch(stagenum.operand1 & 0x03)
               {
                   case 0x00: case 0x01:
@@ -763,6 +767,7 @@ void execute(Stage & stagenum)
               break;
          case 0x06:
               //RET/RETI
+              
               switch(stagenum.operand1 & 0x04)
               {
                   case 0x00:
@@ -781,24 +786,28 @@ void execute(Stage & stagenum)
          case 0x08:
               //ADD
               {
+                  resetFlags();     
                   stagenum.result1 = execAdd(stagenum.data_in1,stagenum.data_in2);
               }
               break;
          case 0x09:
               //SUB
               {
-                  stagenum.result1 = (int)stagenum.data_in1 - (int)stagenum.data_in2;    
+                  stagenum.result1 = (int)stagenum.data_in1 - (int)stagenum.data_in2;
+                  resetFlags();    
               }
               break;
          case 0x0A:
               //AND
               {
                   stagenum.result1 = (int)stagenum.data_in1 & (int)stagenum.data_in2; 
+                  resetFlags();
               }
               break;
          case 0x0B:
               //CEQ
               {
+                   resetFlags();
                    if((int)stagenum.data_in1 == (int)stagenum.data_in2)
                    {
                        Z_FLAG = 1;
@@ -813,6 +822,7 @@ void execute(Stage & stagenum)
          case 0x0C:
               //CLT
               {
+                   resetFlags();
                    if((int)stagenum.data_in1 < (int)stagenum.data_in2)
                    {
                        N_FLAG = 1;
@@ -826,16 +836,21 @@ void execute(Stage & stagenum)
               break;
          case 0x0D:
               //MUL
+              resetFlags();
               stagenum.result1 = (stagenum.data_in1 * stagenum.data_in2)>>8;
               stagenum.result2 = (stagenum.data_in1 * stagenum.data_in2);
+              if(stagenum.result1 == 0x00 && stagenum.result2 == 0x00 && stagenum.cyclesRemaining == 3) Z_FLAG = 1;
+              
               break;
          case 0x0E:
               //DIV
               stagenum.result1 = (stagenum.data_in1 / stagenum.data_in2);
               stagenum.result2 = (stagenum.data_in1 % stagenum.data_in2);
+              if(stagenum.result1 == 0x00 && stagenum.result2 == 0x00 && stagenum.cyclesRemaining == 3) Z_FLAG = 1;
               break;
          case 0x0F:
               //NOT
+              resetFlags();
               stagenum.result1 = ~stagenum.data_in1;
               break;
      }
@@ -991,6 +1006,7 @@ void WB(Stage & stagenum)
               PC_STALLED = 0;
               PIPE_FULL = false;
               PIPE_STALLED = false;
+              resetFlags();
               break;
          case 0x06:
               //RET/RETI
@@ -1003,6 +1019,7 @@ void WB(Stage & stagenum)
               }
               STOP_FILLING_PIPELINE = 0;
               PC_STALLED = 0;
+              resetFlags();
               break;
          case 0x07:
               //SIMD
@@ -1063,7 +1080,7 @@ bool checkDependence(Stage & stagenum)
                   case 0x03:
                        //Store Displacement
                        dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
-                       cout<<"Looking for dependence on "<<(int)((stagenum.operand2 & 0xC0)>>6)<<endl;
+                       //cout<<"Looking for dependence on "<<(int)((stagenum.operand2 & 0xC0)>>6)<<endl;
                        dep_on_op2 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
                        if(dep_on_op1) op1regnum = (int)((stagenum.operand1&0x0C)>>2);
                        if(dep_on_op2) op2regnum = (int)((stagenum.operand2&0xC0)>>6);
@@ -1125,9 +1142,9 @@ bool checkDependence(Stage & stagenum)
       }
       if(dep_on_op2)
       {
-          cout<<"Checking for data forward on stage "<<stagenum.number<<" with register "<<op2regnum<<endl;
+          //cout<<"Checking for data forward on stage "<<stagenum.number<<" with register "<<op2regnum<<endl;
           dep_on_op2 = checkForDataForward(stagenum, index, op2regnum, 2);
-          cout<<"Dep on op 2 = "<<dep_on_op2<<endl;
+          //cout<<"Dep on op 2 = "<<dep_on_op2<<endl;
       }
       //cout<<"Stagenum = "<<stagenum.number<<"   Have op1 = "<<stagenum.hasop1<< " .. regnum: "<<op1regnum<<" ; Have op2 = "<<stagenum.hasop2<<"  regnum: "<<op2regnum<<endl;
       //if(stagenum.hasop1 && stagenum.hasop2) return true;
@@ -1139,12 +1156,12 @@ bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_oper
 {
      //The return value should be false if data was forwarded -- represents no data dependency
      //for(int i = index+1; i < StagesExecuting.size(); i++)
-     cout<<"index = "<<index<< " adn queue = "<<endl;
-     printStageQueue();
+     //cout<<"index = "<<index<< " adn queue = "<<endl;
+     //printStageQueue();
      //for(int i = index+1; i>0;i--)
      for(int i = index; i<StagesExecuting.size();i++)
      {
-             cout<<"Checking stage "<<StagesExecuting[i]<<" for needed data... state = "<<Pipeline[StagesExecuting[i]-1].state<<endl;
+             //cout<<"Checking stage "<<StagesExecuting[i]<<" for needed data... state = "<<Pipeline[StagesExecuting[i]-1].state<<endl;
              if(Pipeline[StagesExecuting[i]-1].state > 3)
              {
                   if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||

@@ -38,6 +38,8 @@ void Stage::print()
         printf("Data_in2 = %02X\n",data_in2);
         cout<<"Result 1 = "<<(int)result1<<endl;
         cout<<"Result 2 = "<<(int)result2<<endl;
+        cout<<"Reg1 = "<<reg1<<endl;
+        cout<<"Reg2 = "<<reg2<<endl;
     }
 }
 

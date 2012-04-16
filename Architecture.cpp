@@ -23,13 +23,14 @@ bool CONTROL_DEBUG = true;
 bool INTERRUPT_DEBUG = true;
 bool FLAG_DEBUG = true;
 bool REGISTER_DEBUG = true;
+bool DEBUG_DFWD = true;
 /*    END DEBUG FLAG DEFS    */
 
 /*  Files to be loaded:  */
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/loop.asm";
+string code_file = "code.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -43,6 +44,7 @@ unsigned int Cycles[16]; //Cycles per instruction (index is opcode)
 Stage Pipeline[5] = {Stage(1),Stage(2),Stage(3),Stage(4),Stage(5)};
 
 deque <int> StagesExecuting;
+deque <Stage> ROB;
 
 /*    GLOBAL FLAG DEFS      */
 bool PIPE_STALLED = false;
@@ -57,6 +59,8 @@ int RUN_FOR = 0;
 int PMEND;
 int instructionClocked = 0;
 bool SPECULATE = 0;
+int I_SPECULATE_CNT = 0;
+bool RUN_TO_COMPLETION_ASKED = false;
 /*     END GLOBAL FLAG DEFS   */
 
 /* FUNCTION PROTOTYPE DEFS */
@@ -71,6 +75,8 @@ void pipePrint(); //Prints the state of the pipeline
 void clockPipeline(); //Clocks a machine cycle of the pipeline
 void clockStage(Stage&); //Clocks a machine cycle of a given stage
 void DOF(Stage&); //Data operand fetch
+bool checkForDataForward(Stage &, int, int, int);
+void forwardData(Stage &, Stage &, int, int);
 void iF(Stage&); // Instruction Fetch
 void execute(Stage&); //Execution
 unsigned char execAdd(unsigned char,unsigned char); //Do ADD Instruction on given operands
@@ -260,8 +266,10 @@ int main(int argc, char * argv[])
            else if(command == "c")
            {
                 //Run to end of program
+                RUN_TO_COMPLETION_ASKED = true;
                 command = "n";
                 RUNNING = 1;
+
                 continue;
            }
            else if(command == "ps")
@@ -287,13 +295,29 @@ int main(int argc, char * argv[])
            {
                 if(PC == PMEND && !allStagesComplete())
                 {
-                     cout<<"************************** PROGRAM END REACHED **************************"<<endl;
-                     finishPipelineExecution();
+                     if(!RUN_TO_COMPLETION_ASKED)
+                     {      
+                         cout<<"************************** PROGRAM END REACHED **************************"<<endl;
+                         cout<<"Would you like to automatically finish the rest of execution? (y/n): ";
+                         string autofinish;
+                         cin>>autofinish;
+                         RUN_TO_COMPLETION_ASKED = true;
+                         if(autofinish.at(0) == 'Y' || autofinish.at(0) == 'y')
+                         {
+                                             
+                              finishPipelineExecution();
+                              RUNNING = 1;
+                              continue;                    
+                         }           
+                     }
+                     finishPipelineExecution();         
+                     PC_STALLED = 1;
                      continue;
                 }
                 else if(PC == PMEND && allStagesComplete())
                 {
                      cout<<"************************** PROGRAM END REACHED **************************"<<endl;
+                     PC_STALLED = 1;
                      continue;
                 }
                 
@@ -334,6 +358,13 @@ void clockPipeline()
              resetAnyFinishedStages();
      }
      if(anyStageStalled()) Statistics.STALL_CNT++;
+     
+     if(I_SPECULATE_CNT > 0)
+     {
+         //Instructions in the ROB
+         //clock these instructions
+         cout<<"Clocking ROB"<<endl;
+     }
       
      if(PIPE_DEBUG) pipePrint();
      if(REGISTER_DEBUG) RF.print();  
@@ -496,6 +527,7 @@ void DOF(Stage & stagenum)
      }
      if(stagenum.stalled == 1)
      {
+         
          return;
      }
      else
@@ -504,12 +536,12 @@ void DOF(Stage & stagenum)
          {
              case 0x00:
                   //CPY
-                  stagenum.data_in1 = RF.getRegister(stagenum.opcode & 0x03);
+                  if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister(stagenum.opcode & 0x03);
                   break;
              case 0x01:
                   //SWAP -- this op should really take 2 MC's to execute
-                  stagenum.data_in1 = RF.getRegister((stagenum.opcode & 0x0C) >> 2);
-                  stagenum.data_in2 = RF.getRegister( stagenum.opcode & 0x03);
+                  if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.opcode & 0x0C) >> 2);
+                  if(!stagenum.hasop2) stagenum.data_in2 = RF.getRegister( stagenum.opcode & 0x03);
                   break;
              case 0x02:
                   //LD/ST
@@ -518,7 +550,7 @@ void DOF(Stage & stagenum)
                   {
                       case 0x00:
                            //Load Immediate
-                           stagenum.data_in1 = stagenum.operand2;
+                           if(!stagenum.hasop1) stagenum.data_in1 = stagenum.operand2;
                            break;
                       case 0x01:
                            //Store Immediate
@@ -526,13 +558,13 @@ void DOF(Stage & stagenum)
                            break;
                       case 0x02:
                            //Load Displacement
-                           stagenum.data_in1 = RF.getRegister((stagenum.operand2 & 0xC0)>>6);
-                           stagenum.data_in2 = stagenum.operand2 & 0x3F;
+                           if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand2 & 0xC0)>>6);
+                           if(!stagenum.hasop2) stagenum.data_in2 = stagenum.operand2 & 0x3F;
                            break;
                       case 0x03:
                            //Store Displacement
-                           stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                           stagenum.data_in2 = RF.getRegister((stagenum.operand2 & 0xC0)>>6);
+                           if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
+                           if(!stagenum.hasop2) stagenum.data_in2 = RF.getRegister((stagenum.operand2 & 0xC0)>>6);
                            break;
                   }
                   break;
@@ -547,7 +579,7 @@ void DOF(Stage & stagenum)
                            break;
                       case 0x01:
                            //Output
-                           stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
+                           if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
                            //TODO: Come back and fix this -- this is a workaround because the stage doesn't stall properly
                            
                            break;
@@ -556,12 +588,12 @@ void DOF(Stage & stagenum)
                   break;
              case 0x04:
                   //SHIFT
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
+                  if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
                   break;
              case 0x05:
                   {
                       //JMP/BR
-                      stagenum.data_in1 = stagenum.operand2;
+                      if(!stagenum.hasop1) stagenum.data_in1 = stagenum.operand2;
                       //we want to stall this stage now until all other stages have finished executing
                       stagenum.stalled = stallStageUntilAllOtherStagesFinished(stagenum.number);
                       return;
@@ -577,7 +609,7 @@ void DOF(Stage & stagenum)
                            break;
                       case 0x04:
                            //Return value held in register
-                           stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x03));
+                           if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x03));
                            stagenum.stalled = stallStageUntilAllOtherStagesFinished(stagenum.number);
                            break;
                   }
@@ -593,12 +625,12 @@ void DOF(Stage & stagenum)
              case 0x0C://CLT
              case 0x0D://MUL
              case 0x0E://DIV
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                  stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
+                  if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
+                  if(!stagenum.hasop2) stagenum.data_in2 = RF.getRegister(stagenum.operand1 & 0x03);
                   break;
              case 0x0F:
                   //NOT
-                  stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
+                  if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
                   break;
          }
      }
@@ -952,26 +984,16 @@ void WB(Stage & stagenum)
 bool checkDependence(Stage & stagenum)
 {
       int index = findStageInQueue(stagenum.number);
+      bool dep_on_op1 = false;
+      bool dep_on_op2 = false;
+      int op1regnum,op2regnum;
       switch((int)stagenum.opcode)
       {
          case 0x00:
               //CPY
               {
-                   return determineIfDependent(index, stagenum.operand1 & 0x03);
-              }
-              break;
-         case 0x01:
-              //SWAP
-              {
-                  if(determineIfDependent(index, stagenum.operand1 & 0x03) ||
-                    (determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2)))
-                    {
-                        return true;
-                    }
-                  else
-                  {
-                      return false;
-                  }
+                   dep_on_op1 = determineIfDependent(index, stagenum.operand1 & 0x03);
+                   if(dep_on_op1) op1regnum = (stagenum.operand1&0x03);
               }
               break;
          case 0x02:
@@ -980,7 +1002,8 @@ bool checkDependence(Stage & stagenum)
               {
                   case 0x00:
                        //Load Immediate
-                       return determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+                       dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
                        break;
                   case 0x01:
                        //Store Immediate
@@ -989,27 +1012,15 @@ bool checkDependence(Stage & stagenum)
                        break;
                   case 0x02:
                        //Load Displacement
-                       if(determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2) ||
-                          determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6))
-                          {
-                               return true;
-                          }
-                       else
-                       {
-                           return false;
-                       }
+                       dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+                       dep_on_op2 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+                       if(dep_on_op2) op2regnum = ((stagenum.operand2&0xC0)>>6);
                        break;
                   case 0x03:
                        //Store Displacement
-                       if(determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2) ||
-                          determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6))
-                         {
-                              return true;
-                         }
-                       else
-                         {   
-                             return false;
-                         }
+                       dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
                        break;
               }
               break;
@@ -1019,122 +1030,148 @@ bool checkDependence(Stage & stagenum)
               {
                   case 0x00:
                        //Input
-                       return false;
                        break;
                   case 0x01:
                        //Output
                        //In the case of output, make sure we aren't trying to compute the register value to output
-                       return determineIfDependent(index, (stagenum.operand1&0x0C)>>2);
+                       dep_on_op1 = determineIfDependent(index, (stagenum.operand1&0x0C)>>2);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
                        break;
               }                                
               break;
-         case 0x04:
-              //SHIFT
-              return determineIfDependent(index, (stagenum.operand1&0x0C)>>2);
+         case 0x04://SHIFT
+         case 0x0F://NOT
+              dep_on_op1 = determineIfDependent(index, (stagenum.operand1&0x0C)>>2);
+              if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
               break;
-         case 0x05:
-              //JMP/BRANCH
-              return false;
-              break;
-         case 0x06:
-              //RET/RETI
+         case 0x05://JMP/BRANCH/CALL
+         case 0x06://RET/RETI
+              //TODO: SHOULD PROBABLY PUT FLAGS SO THAT IF A BRANCH CONDITION IS BEING CALCULATED
+              //WE MAKE SURE THE INSTRUCTION APPEARS DEPENDENT INSTEAD OF STALLING ALL STAGES
+              //BEFORE JUMP CAN GO
               return false;
               break;
          case 0x07:
               //SIMD
-              
               break;
-         case 0x08:
-              //ADD
-              {
-                   if(determineIfDependent(index, stagenum.operand1 & 0x03) ||
-                    (determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2)))
-                    {
-                        return true;
-                    }
-                   else
-                   {
-                        return false;
-                   }
-              }
-              break;
-         case 0x09:
-              //SUB
-              {
-                   if(determineIfDependent(index, stagenum.operand1 & 0x03) ||
-                    (determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2)))
-                    {
-                        return true;
-                    }
-                   else
-                   {
-                        return false;
-                   }
-              }
-              break;
-         case 0x0A:
-              //AND
-              {
-                   if(determineIfDependent(index, stagenum.operand1 & 0x03) ||
-                    (determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2)))
-                    {
-                        return true;
-                    }
-                   else
-                   {
-                        return false;
-                   }
-              }
-              break;
-         case 0x0B:
-              //CEQ
-              if(determineIfDependent(index, stagenum.operand1 & 0x03) ||
-                (determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2)))
-                {
-                    return true;
-                }
-               else
-               {
-                    return false;
-               }
-              break;
-         case 0x0C:
-              //CLT
-              if(determineIfDependent(index, stagenum.operand1 & 0x03) ||
-                (determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2)))
-                {
-                    return true;
-                }
-               else
-               {
-                    return false;
-               }
-              break;
+         case 0x08://ADD
+         case 0x09://SUB
+         case 0x0A://AND
+         case 0x0B://CEQ
+         case 0x0C://CLT
          case 0x0D://MUL
          case 0x0E://DIV
-              if(determineIfDependent(index, stagenum.operand1 & 0x03) ||
-                (determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2)))
-                {
-                    return true;
-                }
-               else
-               {
-                    return false;
-               }
-              break;
-         case 0x0F:
-              //NOT
-              if(determineIfDependent(index, stagenum.operand1 & 0x03) ||
-                (determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2)))
-                {
-                    return true;
-                }
-               else
-               {
-                    return false;
-               }
+         case 0x01://SWAP
+              dep_on_op1 = determineIfDependent(index, stagenum.operand1 & 0x03);
+              dep_on_op2 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+              if(dep_on_op1) op1regnum = (stagenum.operand1&0x03);
+              if(dep_on_op2) op2regnum = ((stagenum.operand1&0x0C)>>2);
               break;
       }
+      
+      //At this point we know whether there is a dependency with operand1, operand2, or both
+      //We also know the register number for each of them
+      //Now we should go through and figure out if any data forwarding is possible
+      
+      if(dep_on_op1)
+      {
+          dep_on_op1 = checkForDataForward(stagenum, index, op1regnum, 1);
+      }
+      if(dep_on_op2)
+      {
+          dep_on_op2 = checkForDataForward(stagenum, index, op2regnum, 2);
+      }
+      if(dep_on_op1 || dep_on_op2) return true;
+      else return false;
+}
+
+bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_operand)
+{
+     //The return value should be false if data was forwarded -- represents no data dependency
+     for(int i = index+1; i < StagesExecuting.size(); i++)
+     {
+             if(Pipeline[StagesExecuting[i]-1].state > 3)
+             {
+                  if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||
+                     Pipeline[StagesExecuting[i]-1].reg2 == regnum)
+                  {
+                      //Data forward is possible
+                      forwardData(stagenum, Pipeline[StagesExecuting[i]-1], regnum, which_operand);
+                      return false;
+                  }
+                  else
+                  {
+                      continue;
+                  }
+             }
+     }
+     return true; //Dependency still exists
+}
+
+void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
+{
+     //Basically want to write the result for regnum of origin into temp_data{which_operand} of dest
+     //after we've written an operand make sure to flag dest.hasop{which_operand} as true
+     if(DEBUG_DFWD) cout<<"Data foward regnum "<<regnum<<" from stage "<<origin.number<<" to "<<dest.number<<endl;
+     //Should look at the opcode to figure out how to forward the appropriate data
+     char data;
+     switch(origin.opcode & 0xF0)
+     {
+          case 0x00: //CPY
+               data = origin.result1;
+               break;
+          case 0x01: //SWAP
+               if(origin.reg1 == regnum) data = origin.result2;
+               if(origin.reg2 == regnum) data = origin.result1;
+               break;
+          case 0x02: //LD/ST
+               //For LD/ST we only care about loads because they will effect the registers
+               //In result1 is stored the effective memory address of the data
+               if((origin.operand1 & 0x03) == 0x00) //LD IMMEDIATE
+                   data = origin.result1;
+               if((origin.operand1 & 0x03) == 0x02) //LD DISPLACEMENT
+                   data = DM[origin.result1];
+               break;
+          case 0x03: //IN/OUT
+               if((origin.operand1 & 0x01) == 0x01) //INPUT
+                   data = origin.result1;
+               break;
+          case 0x04: //SHIFT
+               data = origin.result1;
+               break;
+          case 0x05: //JMP/BR/CALL
+               break;
+          case 0x06: //RET/RETI
+               break;
+          case 0x07: //SIMD
+               break;
+          case 0x08: //ADD
+          case 0x09: //SUB
+          case 0x0A: //AND
+          case 0x0F: //NOT
+               data = origin.result1;
+               break;
+          case 0x0B: //CEQ
+          case 0x0C: //CLT
+               //No writeback to registers.. we dont care about this in terms of data forwarding
+               break;
+          case 0x0D: //MUL
+          case 0x0E: //DIV
+               if(origin.reg1 == regnum) data = origin.result1;
+               if(origin.reg2 == regnum) data = origin.result2;
+               break;
+     }
+     
+     if(which_operand == 1)
+     {
+          dest.data_in1 = data;
+          dest.hasop1 = true;
+     }
+     if(which_operand == 2)
+     {
+          dest.data_in2 = data;
+          dest.hasop2 = true;
+     }
 }
 
 int stallStageUntilAllOtherStagesFinished(int stagenumber)

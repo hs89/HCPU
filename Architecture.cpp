@@ -474,7 +474,7 @@ void iF(Stage & stagenum)
                   break;
              case 0x02:
                   //LD/ST
-                  if((stagenum.opcode & 0x01) == 0x00)
+                  if((stagenum.operand1 & 0x01) == 0x00)
                   {
                       //Load into a register -- mark destination register
                       stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
@@ -571,6 +571,7 @@ void DOF(Stage & stagenum)
                            //Load Displacement
                            if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand2 & 0xC0)>>6);
                            stagenum.data_in2 = stagenum.operand2 & 0x3F;
+                           stagenum.hasop2 = true;
                            break;
                       case 0x03:
                            //Store Displacement
@@ -1023,15 +1024,17 @@ bool checkDependence(Stage & stagenum)
                        break;
                   case 0x02:
                        //Load Displacement
-                       dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
-                       //dep_on_op2 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
-                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
-                       //if(dep_on_op2) op2regnum = ((stagenum.operand2&0xC0)>>6);
+                       ///dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+                       dep_on_op1 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
+                       //if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand2&0xC0)>>6);
                        break;
                   case 0x03:
                        //Store Displacement
                        dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
-                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+                       dep_on_op2 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
+                       if(dep_on_op1) op1regnum = (int)((stagenum.operand1&0x0C)>>2);
+                       if(dep_on_op2) op2regnum = (int)((stagenum.operand2&0xC0)>>6);
                        break;
               }
               break;
@@ -1092,6 +1095,7 @@ bool checkDependence(Stage & stagenum)
       {
           dep_on_op2 = checkForDataForward(stagenum, index, op2regnum, 2);
       }
+      cout<<"Have op1 = "<<dep_on_op1<< " .. regnum: "<<op1regnum<<"    ;      Have op2 = "<<dep_on_op2<<"      regnum: "<<op2regnum<<endl;
       if(dep_on_op1 || dep_on_op2) return true;
       else return false;
 }
@@ -1107,6 +1111,7 @@ bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_oper
                   if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||
                      Pipeline[StagesExecuting[i]-1].reg2 == regnum  )
                   {
+                      //cout<<"Waiting for stage "<<StagesExecuting[i]<<" to write back to "<<regnum<<endl;
                       //Data forward is possible
                       forwardData(stagenum, Pipeline[StagesExecuting[i]-1], regnum, which_operand);
                       stagenum.dfwd = 1;
@@ -1127,7 +1132,7 @@ void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
      //after we've written an operand make sure to flag dest.hasop{which_operand} as true
      //Should look at the opcode to figure out how to forward the appropriate data
      char data;
-     cout<<"Doing a data forward... the origin is in state "<<origin.state<<endl;
+     //cout<<"Doing a data forward... the origin is in state "<<origin.state<<endl;
      switch(origin.opcode & 0xF0)
      {
           case 0x00: //CPY

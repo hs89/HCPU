@@ -31,7 +31,7 @@ bool DEBUG_ROB = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/loop.asm";
+string code_file = "Assembly/loop_unrolled.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -436,6 +436,7 @@ void clockPipeline()
                   //there are no more speculative insructions to deal with
                   PC_STALLED = false;
                   WRITE_BACK_ROB = false;
+                  STOP_FILLING_PIPELINE = false;
              }
              
          }
@@ -594,11 +595,7 @@ void iF(Stage & stagenum)
                   {
                       PC = stagenum.operand2-1;           
                   }
-                  
-                  //If we don't take the branch we will just continue to advance the PC and execute speculatively
-                  
-                  
-                                    
+                  //If we don't take the branch we will just continue to advance the PC and execute speculatively                 
                   break;
              case 0x06:
                   //RET/RETI
@@ -1112,6 +1109,9 @@ void WB(Stage & stagenum)
                       //awesome... we predicted the right direction... write the ROB back
                       WRITE_BACK_ROB = true;
                       if(DEBUG_ROB) cout<<"RIGHT PREDICTION -- start writing back from ROB"<<endl;
+                      STOP_FILLING_PIPELINE = 1;
+                      PC_STALLED = 1;
+                      resetStage(Pipeline[StagesExecuting[0]-1]);                      
                       SPECULATE = false;
               }
               else

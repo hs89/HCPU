@@ -24,13 +24,14 @@ bool INTERRUPT_DEBUG = true;
 bool FLAG_DEBUG = true;
 bool REGISTER_DEBUG = true;
 bool DEBUG_DFWD = true;
+bool DEBUG_ROB = true;
 /*    END DEBUG FLAG DEFS    */
 
 /*  Files to be loaded:  */
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/loop.asm";
+string code_file = "Assembly/loop_unrolled.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -58,10 +59,14 @@ int RUNNING = 0;
 int RUN_FOR = 0;
 int PMEND;
 int instructionClocked = 0;
-bool SPECULATE = 0;
-int I_SPECULATE_CNT = 0;
 bool RUN_TO_COMPLETION_ASKED = false;
 /*     END GLOBAL FLAG DEFS   */
+
+bool SPECULATE = false;
+char SAVED_PC;
+bool TAKE_BRANCH = true;
+bool WRITE_BACK_ROB = false;
+
 
 /* FUNCTION PROTOTYPE DEFS */
 void testRegisters(); //Prototype for register class test -- debug code
@@ -101,6 +106,8 @@ bool anyStageStalled(); //checks if any stage in the pipeline is stalled
 bool pipelineFull(); //checks if the pipeline is full of instructions
 void printStageQueue(); //For debug.. prints the pipeline stage queue (used to determine data dependence)
 bool checkStageRegisterDependence(int,int); //Checks to see if a register number is in use by given stage number (for determining data dependence)
+void printROB();
+void clearSpeculativeFromPipeline();
 /* END FUNCTION PROTOTYPE DEFS */
 
 /* GLOBAL VAR DEFS */
@@ -269,6 +276,11 @@ int main(int argc, char * argv[])
                 printStageQueue();
                 continue;
            }
+           else if(command == "prob")
+           {
+                printROB();
+                continue;
+           }
            else if(command == "pf")
            {
                 //Print current flag values
@@ -315,8 +327,7 @@ int main(int argc, char * argv[])
                          cin>>autofinish;
                          RUN_TO_COMPLETION_ASKED = true;
                          if(autofinish.at(0) == 'Y' || autofinish.at(0) == 'y')
-                         {
-                                             
+                         {            
                               finishPipelineExecution();
                               RUNNING = 1;
                               continue;                    
@@ -363,35 +374,73 @@ void clockPipeline()
      int alreadyClocked[5] = {0,0,0,0,0};
      Statistics.MC_CNT++;
      
-     if(StagesExecuting.size() > 0)
+     if(!WRITE_BACK_ROB)
      {
-         for(int j = StagesExecuting.size()-1;j>0;j--)
+         if(StagesExecuting.size() > 0)
          {
-                 //Clock stages already in pipeline starting from the end before clocking in the next instruction
-                 clockStage(Pipeline[StagesExecuting[j]-1]);
-                 alreadyClocked[StagesExecuting[j]-1] = 1;
-                 if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
-                 resetAnyFinishedStages();
+             for(int j = StagesExecuting.size()-1;j>0;j--)
+             {
+                     //Clock stages already in pipeline starting from the end before clocking in the next instruction
+                     clockStage(Pipeline[StagesExecuting[j]-1]);
+                     alreadyClocked[StagesExecuting[j]-1] = 1;
+                     if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
+                     resetAnyFinishedStages();
+             }
+         }
+         
+         for(int i = 0;i<5;i++)
+         {
+                 if(alreadyClocked[i] != 1)
+                 {
+                     clockStage(Pipeline[i]);
+                     if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
+                     resetAnyFinishedStages();
+                 }
          }
      }
-     
-     for(int i = 0;i<5;i++)
+     else
      {
-             if(alreadyClocked[i] != 1)
+         if(ROB.size() > 0)
+         {
+             PC_STALLED = true;
+             //Any stage in the ROB is in mem writeback (state 4)
+             ROB.back().speculate = 0;
+             clockStage(ROB.back());
+             clockStage(ROB.back());
+             //ROB.back().print();
+             ROB.pop_back();
+             if(DEBUG_ROB) cout<<"Committed another ROB instruction"<<endl;
+         }
+         else
+         {
+             //even though we are done writing back the ROB there may still be instructions in the pipeline
+             //which were due to speculation..
+             //make sure to service these before we turn the program counter back on and starting clocking in new
+             //instructions
+             SPECULATE = false;
+             int clocked_pipe_spec = 0;
+             for(int x = StagesExecuting.size()-1; x>=0; x--)
              {
-                 clockStage(Pipeline[i]);
-                 if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
-                 resetAnyFinishedStages();
+                     if(Pipeline[StagesExecuting[x]-1].speculate == 1)
+                     {
+                         Pipeline[StagesExecuting[x]-1].speculate = 0;
+                         clockStage(Pipeline[StagesExecuting[x]-1]);
+                         Pipeline[StagesExecuting[x]-1].speculate = 1;
+                         clocked_pipe_spec = 1;
+                         if(STOP_FILLING_PIPELINE == 1) instructionClocked = 1;
+                         resetAnyFinishedStages();
+                     }
              }
+             if(clocked_pipe_spec == 0)
+             {
+                  //there are no more speculative insructions to deal with
+                  PC_STALLED = false;
+                  WRITE_BACK_ROB = false;
+             }
+             
+         }
      }
      if(anyStageStalled()) Statistics.STALL_CNT++;
-     
-     if(I_SPECULATE_CNT > 0)
-     {
-         //Instructions in the ROB
-         //clock these instructions
-         cout<<"Clocking ROB"<<endl;
-     }
       
      if(PIPE_DEBUG) pipePrint();
      if(REGISTER_DEBUG) RF.print();  
@@ -403,6 +452,7 @@ void clockStage(Stage & stagenum)
      {
          case 0:
               //Nothing in stage yet -- do iF/Decode
+              if(SPECULATE) stagenum.speculate = true;
               if((!END_REACHED && instructionClocked != 1) || (INTERRUPTED == 1 && instructionClocked != 1))
               {
                   iF(stagenum);   
@@ -443,10 +493,26 @@ void clockStage(Stage & stagenum)
              }
              break;
          case 4:
-              //Stage in Memory Writeback
-              MWB(stagenum);
-              stagenum.cyclesRemaining--;
-              stagenum.state++;
+              if(stagenum.speculate != 1)
+              {
+                  //Stage in Memory Writeback
+                  MWB(stagenum);
+                  stagenum.cyclesRemaining--;
+                  stagenum.state++;
+              }
+              else
+              {
+                  //This is speculative.. push this stage into the ROB
+                  //make sure to advance this instruction so this stage of the pipeline gets cleared
+                  //pipePrint();
+                  //printStageQueue();
+                  if(stagenum.speculate == 1)
+                  {
+                      if(DEBUG_ROB) cout<<"Pushing stage "<<stagenum.number<<" into the reorder buffer"<<endl;
+                      ROB.push_front(stagenum);
+                      stagenum.state += 2; // This makes state = 6 and stage will get reset
+                  }
+              }
               break;
          case 5:
               //Stage in Register Writeback
@@ -515,12 +581,24 @@ void iF(Stage & stagenum)
                   break;
              case 0x05:
                   //JMP/BR/CALL
-                  //In the case of Jump, branch, or call we want to stop
-                  //filling the pipeline to ensure we don't execute something in error
-                  //also stall the program counter because we're going to change it..
-                  //don't want to increment it in error
-                  STOP_FILLING_PIPELINE = 1;
-                  PC_STALLED = 1;
+                  //In the case of a jump,branch we want to continue executing speculatively
+                  //It is important to save the current PC value in case we speculated incorrectly
+                  //It is also important to set the speculate flag to ensure any instruction clocked into
+                  //the pipeline isn't written back but instead clocked into the ROB when finished
+                  
+                  //STOP_FILLING_PIPELINE = 1;
+                  //PC_STALLED = 1;
+                  
+                  SAVED_PC = PC-1;
+                  if(TAKE_BRANCH)
+                  {
+                      PC = stagenum.operand2;           
+                  }
+                  
+                  //If we don't take the branch we will just continue to advance the PC and execute speculatively
+                  
+                  
+                                    
                   break;
              case 0x06:
                   //RET/RETI
@@ -558,7 +636,7 @@ void DOF(Stage & stagenum)
           stagenum.stalled = 0;
      }
      if(stagenum.hasop1 && stagenum.hasop2) stagenum.stalled = 0;
-     cout<<"Stage "<<stagenum.number<<" has op1: "<<stagenum.hasop1<<" and has op2: "<<stagenum.hasop2<<endl;
+     //cout<<"Stage "<<stagenum.number<<" has op1: "<<stagenum.hasop1<<" and has op2: "<<stagenum.hasop2<<endl;
      if(stagenum.stalled == 1)
      {   
          return;
@@ -622,7 +700,7 @@ void DOF(Stage & stagenum)
                            stagenum.hasop1 = stagenum.hasop2 = true;
                            break;
                   }
-                  stagenum.stalled = stallStageUntilAllOtherStagesFinished(stagenum.number);
+                  //stagenum.stalled = stallStageUntilAllOtherStagesFinished(stagenum.number);
                   break;
              case 0x04:
                   //SHIFT
@@ -633,8 +711,22 @@ void DOF(Stage & stagenum)
                   {
                       //JMP/BR
                       if(!stagenum.hasop1) stagenum.data_in1 = stagenum.operand2;
+                      
                       //we want to stall this stage now until all other stages have finished executing
-                      stagenum.stalled = stallStageUntilAllOtherStagesFinished(stagenum.number);
+                      //stagenum.stalled = stallStageUntilAllOtherStagesFinished(stagenum.number);
+                      if(StagesExecuting[StagesExecuting.size()-1] != stagenum.number)
+                      {
+                           //Still waiting to compute a branch condition
+                           //May be executing speculatively though..
+                           stagenum.stalled = 1;
+                           SPECULATE = true;
+                           if(DEBUG_ROB) cout<<"Other Stages before JMP (stage "<<stagenum.number<<") are going.. execute speculatively"<<endl;
+                      }
+                      else
+                      {
+                          stagenum.stalled = 0;
+                      }
+                      
                       stagenum.hasop1 = stagenum.hasop2 = true;
                       return;
                   }
@@ -685,14 +777,12 @@ void execute(Stage & stagenum)
          case 0x00:
               //CPY
               {
-                   resetFlags();
                    stagenum.result1 = stagenum.data_in1;
               }
               break;
          case 0x01:
               //SWAP -- this op should really take 2 MC's to execute
               {
-                  resetFlags();
                   char temp = stagenum.data_in1;
                   stagenum.result1 = stagenum.data_in2;
                   stagenum.result2 = temp;
@@ -723,7 +813,6 @@ void execute(Stage & stagenum)
               break;
          case 0x03:
               //IN/OUT
-              resetFlags();
               switch(stagenum.operand1 & 0x01)
               {
                   case 0x00:
@@ -737,7 +826,6 @@ void execute(Stage & stagenum)
               break;
          case 0x04:
               //SHIFT
-              resetFlags();
               switch(stagenum.operand1 & 0x03)
               {
                   case 0x00: case 0x01:
@@ -785,29 +873,25 @@ void execute(Stage & stagenum)
               break;
          case 0x08:
               //ADD
-              {
-                  resetFlags();     
+              { 
                   stagenum.result1 = execAdd(stagenum.data_in1,stagenum.data_in2);
               }
               break;
          case 0x09:
               //SUB
               {
-                  stagenum.result1 = (int)stagenum.data_in1 - (int)stagenum.data_in2;
-                  resetFlags();    
+                  stagenum.result1 = (int)stagenum.data_in1 - (int)stagenum.data_in2; 
               }
               break;
          case 0x0A:
               //AND
               {
                   stagenum.result1 = (int)stagenum.data_in1 & (int)stagenum.data_in2; 
-                  resetFlags();
               }
               break;
          case 0x0B:
               //CEQ
               {
-                   resetFlags();
                    if((int)stagenum.data_in1 == (int)stagenum.data_in2)
                    {
                        Z_FLAG = 1;
@@ -822,7 +906,6 @@ void execute(Stage & stagenum)
          case 0x0C:
               //CLT
               {
-                   resetFlags();
                    if((int)stagenum.data_in1 < (int)stagenum.data_in2)
                    {
                        N_FLAG = 1;
@@ -836,7 +919,6 @@ void execute(Stage & stagenum)
               break;
          case 0x0D:
               //MUL
-              resetFlags();
               stagenum.result1 = (stagenum.data_in1 * stagenum.data_in2)>>8;
               stagenum.result2 = (stagenum.data_in1 * stagenum.data_in2);
               if(stagenum.result1 == 0x00 && stagenum.result2 == 0x00 && stagenum.cyclesRemaining == 3) Z_FLAG = 1;
@@ -850,7 +932,6 @@ void execute(Stage & stagenum)
               break;
          case 0x0F:
               //NOT
-              resetFlags();
               stagenum.result1 = ~stagenum.data_in1;
               break;
      }
@@ -901,6 +982,7 @@ void MWB(Stage & stagenum)
 
 void WB(Stage & stagenum)
 {
+     bool jumped;
       switch((int)stagenum.opcode)
       {
          case 0x00:
@@ -959,35 +1041,55 @@ void WB(Stage & stagenum)
               break;
          case 0x05:
               //JMP/BRANCH
+              jumped = false;
               switch(stagenum.operand1 & 0x0F)
               {
                   case 0x00:
                        //JMP Unconditionally
                        PC = (char)((int)stagenum.result1-1); // The -1 accounts for the PC being incremented after completeion of this stage
+                       jumped = true;
                        break;
                   case 0x01:
                        //BR if V = 1
-                       if(V_FLAG == 1) PC = (char)((int)stagenum.result1-1);
+                       if(V_FLAG == 1) {
+                                 PC = (char)((int)stagenum.result1-1);
+                                 jumped = true;
+                       }
                        break;
                   case 0x02:
                        //BR if Z = 1
-                       if(Z_FLAG == 1) PC = (char)((int)stagenum.result1-1);
+                       if(Z_FLAG == 1) {
+                                 PC = (char)((int)stagenum.result1-1);
+                                 jumped = true;
+                       }
                        break;
                   case 0x04:
                        //BR if N = 1
-                       if(N_FLAG == 1) PC = (char)((int)stagenum.result1-1);
+                       if(N_FLAG == 1) {
+                                 PC = (char)((int)stagenum.result1-1);
+                                 jumped = true;
+                       }
                        break;
                   case 0x08:
                        //BR if C = 1
-                       if(C_FLAG == 1) PC = (char)((int)stagenum.result1-1);
+                       if(C_FLAG == 1) {
+                                 PC = (char)((int)stagenum.result1-1);
+                                 jumped = true;
+                       }
                        break;
                   case 0x0A:
                        //BR if C&Z = 1
-                       if(C_FLAG == 1 && Z_FLAG == 1) PC = (char)((int)stagenum.result1-1);
+                       if(C_FLAG == 1 && Z_FLAG == 1) {
+                                 PC = (char)((int)stagenum.result1-1);
+                                 jumped = true;
+                       }
                        break;
                   case 0x0C:
                        //BR if C&N = 1
-                       if(C_FLAG == 1 && N_FLAG == 1) PC = (char)((int)stagenum.result1-1);
+                       if(C_FLAG == 1 && N_FLAG == 1) {
+                                 PC = (char)((int)stagenum.result1-1);
+                                 jumped = true;
+                       }
                        break;
                   case 0x0F:
                        //CALL
@@ -997,6 +1099,7 @@ void WB(Stage & stagenum)
                            RF.print();
                            cout<<"PC Stored = "<<hex<<(int)PC<<endl;
                        }
+                       jumped = true;
                        saveSystemState();
                        PC = (char)((int)stagenum.result1-1);
                        RF.resetRegisters();
@@ -1004,8 +1107,29 @@ void WB(Stage & stagenum)
               }
               STOP_FILLING_PIPELINE = 0; // Re-enable filling of the pipeline now that we have written back the updated PC
               PC_STALLED = 0;
-              PIPE_FULL = false;
-              PIPE_STALLED = false;
+              if(jumped == TAKE_BRANCH)
+              {
+                      //awesome... we predicted the right direction... write the ROB back
+                      WRITE_BACK_ROB = true;
+                      if(DEBUG_ROB) cout<<"RIGHT PREDICTION -- start writing back from ROB"<<endl;
+                      SPECULATE = false;
+              }
+              else
+              {
+                  //fuck.. we predicted wrong.. clear the rob
+                  //also, why not change our prediction for next time around (assuming loop)
+                  if(DEBUG_ROB) cout<<"WRONG PREDICTION -- clearing ROB and any speculative instructions in pipe"<<endl;
+                  ROB.clear();
+                  if(TAKE_BRANCH == false) TAKE_BRANCH = true;
+                  if(TAKE_BRANCH == true ) TAKE_BRANCH = false;
+                  //also need to reset the PC to the correct location..
+                  PC = SAVED_PC;
+                  //also need to clear any currently speculating instructions from the pipeline
+                  clearSpeculativeFromPipeline();
+                  SPECULATE = false;
+              }
+              //PIPE_FULL = false;
+              //PIPE_STALLED = false;
               resetFlags();
               break;
          case 0x06:
@@ -1109,9 +1233,6 @@ bool checkDependence(Stage & stagenum)
               break;
          case 0x05://JMP/BRANCH/CALL
          case 0x06://RET/RETI
-              //TODO: SHOULD PROBABLY PUT FLAGS SO THAT IF A BRANCH CONDITION IS BEING CALCULATED
-              //WE MAKE SURE THE INSTRUCTION APPEARS DEPENDENT INSTEAD OF STALLING ALL STAGES
-              //BEFORE JUMP CAN GO
               return false;
               break;
          case 0x07:
@@ -1275,12 +1396,24 @@ bool determineIfDependent(int index, char regnum)
      //we need to check from index to StagesExecuting.size whether or not the source is 
      //a register waiting to be written to as a destination of a prior command
      //if(StagesExecuting.size() == 1) return false;
-     for(int i = index+1; i < StagesExecuting.size(); i++)
+     if(Pipeline[StagesExecuting[index]-1].speculate == 0)
      {
-         if(checkStageRegisterDependence(StagesExecuting[i],(int)regnum)) return true;
-     }
-     return false;
-     
+         for(int i = index+1; i < StagesExecuting.size(); i++)
+         {
+             if(checkStageRegisterDependence(StagesExecuting[i],(int)regnum)) return true;
+         }
+         return false; 
+     }   
+     /*else
+     {
+         cout<<"Checking data dependence for speculative instruction... "<<endl;
+         //For a speculative instruction data dependence could be:
+         //    - in the pipeline
+         //    - in the ROB
+         //we need really really really need to figure out where there may be a data dependency
+         //the dependency will only exist within speculated instructions
+         
+     }*/
 }
 
 
@@ -1477,6 +1610,7 @@ void pipePrint()
      cout<<"IW1   : "<<hex<<(int)Pipeline[0].operand1<<"\t\t"<<(int)Pipeline[1].operand1<<"\t\t"<<(int)Pipeline[2].operand1<<"\t\t"<<(int)Pipeline[3].operand1<<"\t\t"<<(int)Pipeline[4].operand1<<endl;
      cout<<"IW2   : "<<hex<<(int)Pipeline[0].operand2<<"\t\t"<<(int)Pipeline[1].operand2<<"\t\t"<<(int)Pipeline[2].operand2<<"\t\t"<<(int)Pipeline[3].operand2<<"\t\t"<<(int)Pipeline[4].operand2<<endl;
      cout<<"Cycles: "<<dec<<Pipeline[0].cyclesRemaining<<"\t\t"<<Pipeline[1].cyclesRemaining<<"\t\t"<<Pipeline[2].cyclesRemaining<<"\t\t"<<Pipeline[3].cyclesRemaining<<"\t\t"<<Pipeline[4].cyclesRemaining<<endl;
+     cout<<"Specul: "<<dec<<Pipeline[0].speculate<<"\t\t"<<Pipeline[1].speculate<<"\t\t"<<Pipeline[2].speculate<<"\t\t"<<Pipeline[3].speculate<<"\t\t"<<Pipeline[4].speculate<<endl;
 }
 
 string stateNumToString(Stage num)
@@ -1610,6 +1744,24 @@ unsigned char execAdd(unsigned char op1, unsigned char op2)
           cout<<"SET V_FLAG to "<<(int)V_FLAG<<endl;
       }
       return (unsigned char)((int)op1 + (int)op2);
+}
+void clearSpeculativeFromPipeline()
+{
+     for(int i = 0;i<5;i++)
+     {
+             if(Pipeline[i].speculate == 1)
+             {
+                  resetStage(Pipeline[i]);                  
+             }
+     }    
+}
+
+void printROB()
+{
+     for(int i = 0;i<ROB.size();i++)
+     {
+             ROB[i].print();
+     }
 }
 
 

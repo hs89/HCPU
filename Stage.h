@@ -22,7 +22,7 @@ class Stage
              unsigned int  state;
              bool hasop1,hasop2;
              int dfwd;
-             int speculative;
+             int speculate;
              int reg1,reg2;
              int stalled;
              int number;

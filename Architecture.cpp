@@ -31,7 +31,7 @@ bool DEBUG_ROB = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/loop_unrolled.asm";
+string code_file = "Assembly/loop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -589,10 +589,10 @@ void iF(Stage & stagenum)
                   //STOP_FILLING_PIPELINE = 1;
                   //PC_STALLED = 1;
                   
-                  SAVED_PC = PC-1;
+                  SAVED_PC = PC;
                   if(TAKE_BRANCH)
                   {
-                      PC = stagenum.operand2;           
+                      PC = stagenum.operand2-1;           
                   }
                   
                   //If we don't take the branch we will just continue to advance the PC and execute speculatively
@@ -1127,6 +1127,7 @@ void WB(Stage & stagenum)
                   //also need to clear any currently speculating instructions from the pipeline
                   clearSpeculativeFromPipeline();
                   SPECULATE = false;
+                  
               }
               //PIPE_FULL = false;
               //PIPE_STALLED = false;
@@ -1427,6 +1428,7 @@ void resetAnyFinishedStages()
 
 void resetStage(Stage & snum)
 {     
+      cout<<""; // don't know why but this fixes a bug...
       int tempnumber = findStageInQueue(snum.number);
       StagesExecuting.erase(StagesExecuting.begin()+tempnumber);
       snum.reset();
@@ -1751,7 +1753,7 @@ void clearSpeculativeFromPipeline()
      {
              if(Pipeline[i].speculate == 1)
              {
-                  resetStage(Pipeline[i]);                  
+                  resetStage(Pipeline[i]);               
              }
      }    
 }

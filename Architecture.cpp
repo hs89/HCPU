@@ -31,7 +31,7 @@ bool DEBUG_ROB = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/loop_unrolled.asm";
+string code_file = "Assembly/muldivloop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -66,7 +66,7 @@ bool SPECULATE = false;
 char SAVED_PC;
 bool TAKE_BRANCH = true;
 bool WRITE_BACK_ROB = false;
-
+bool PREDICTED_WRONG = false;
 
 /* FUNCTION PROTOTYPE DEFS */
 void testRegisters(); //Prototype for register class test -- debug code
@@ -347,7 +347,7 @@ int main(int argc, char * argv[])
                 if(PIPE_DEBUG) cout<<"------------- MC "<<dec<<(int)Statistics.MC_CNT<<" -------------"<<endl;
                 clockPipeline();
                 
-                if(PC_STALLED != 1 && STOP_FILLING_PIPELINE != 1 && !PIPE_FULL || INTERRUPTED == 1)
+                if(PC_STALLED != 1 && STOP_FILLING_PIPELINE != 1 && !PIPE_FULL || INTERRUPTED == 1 && !PREDICTED_WRONG)
                 {
                       PC++;
                 }
@@ -445,6 +445,13 @@ void clockPipeline()
       
      if(PIPE_DEBUG) pipePrint();
      if(REGISTER_DEBUG) RF.print();  
+     if(PREDICTED_WRONG)
+     {
+          //should have done all the cleanup by now
+          PREDICTED_WRONG = false;
+          PC_STALLED = false;
+          STOP_FILLING_PIPELINE = false;
+     }
 }
 
 void clockStage(Stage & stagenum)
@@ -618,7 +625,7 @@ void iF(Stage & stagenum)
              case 0x0D://MUL
              case 0x0E://DIV
                   stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
-                  stagenum.reg2 = (int)((stagenum.operand2&0x03));
+                  stagenum.reg2 = (int)((stagenum.operand1&0x03));
                   break;
       }
 }
@@ -1124,6 +1131,9 @@ void WB(Stage & stagenum)
                   if(TAKE_BRANCH == true ) TAKE_BRANCH = false;
                   //also need to reset the PC to the correct location..
                   PC = SAVED_PC;
+                  PREDICTED_WRONG = true;
+                  STOP_FILLING_PIPELINE = 1;
+                  PC_STALLED = 1;
                   //also need to clear any currently speculating instructions from the pipeline
                   clearSpeculativeFromPipeline();
                   SPECULATE = false;
@@ -1264,12 +1274,10 @@ bool checkDependence(Stage & stagenum)
       }
       if(dep_on_op2)
       {
-          //cout<<"Checking for data forward on stage "<<stagenum.number<<" with register "<<op2regnum<<endl;
           dep_on_op2 = checkForDataForward(stagenum, index, op2regnum, 2);
-          //cout<<"Dep on op 2 = "<<dep_on_op2<<endl;
       }
-      //cout<<"Stagenum = "<<stagenum.number<<"   Have op1 = "<<stagenum.hasop1<< " .. regnum: "<<op1regnum<<" ; Have op2 = "<<stagenum.hasop2<<"  regnum: "<<op2regnum<<endl;
-      //if(stagenum.hasop1 && stagenum.hasop2) return true;
+      if(dep_on_op1) stagenum.hasop1 = false;
+      if(dep_on_op2) stagenum.hasop2 = false;
       if(dep_on_op1 || dep_on_op2) return true;
       else return false;
 }
@@ -1281,24 +1289,29 @@ bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_oper
      //cout<<"index = "<<index<< " adn queue = "<<endl;
      //printStageQueue();
      //for(int i = index+1; i>0;i--)
-     for(int i = index; i<StagesExecuting.size();i++)
+     for(int i = index+1; i<StagesExecuting.size();i++)
      {
              //cout<<"Checking stage "<<StagesExecuting[i]<<" for needed data... state = "<<Pipeline[StagesExecuting[i]-1].state<<endl;
-             if(Pipeline[StagesExecuting[i]-1].state > 3)
+             if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||
+                Pipeline[StagesExecuting[i]-1].reg2 == regnum  )
              {
-                  if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||
-                     Pipeline[StagesExecuting[i]-1].reg2 == regnum  )
-                  {
-                      //cout<<"Waiting for stage "<<StagesExecuting[i]<<" to write back to "<<regnum<<endl;
-                      //Data forward is possible
-                      forwardData(stagenum, Pipeline[StagesExecuting[i]-1], regnum, which_operand);
-                      stagenum.dfwd = 1;
-                      return false;
-                  }
-                  else
-                  {
-                      continue;
-                  }
+                 if(Pipeline[StagesExecuting[i]-1].state > 3)
+                 {
+                      
+                          //cout<<"Waiting for stage "<<StagesExecuting[i]<<" to write back to "<<regnum<<endl;
+                          //Data forward is possible
+                          forwardData(stagenum, Pipeline[StagesExecuting[i]-1], regnum, which_operand);
+                          stagenum.dfwd = 1;
+                          return false;
+                 }
+                 else
+                 {
+                      //Still waiting for the stage to execute in order for proper data forwarding
+                      //cout<<"waiting..."<<endl;
+                      stagenum.stalled = 1;
+                      return true;
+                 }
+                  
              }
      }
      return true; //Dependency still exists

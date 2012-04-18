@@ -31,7 +31,7 @@ bool DEBUG_ROB = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/muldivloop.asm";
+string code_file = "Assembly/mulloop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -1127,13 +1127,14 @@ void WB(Stage & stagenum)
                   //also, why not change our prediction for next time around (assuming loop)
                   if(DEBUG_ROB) cout<<"WRONG PREDICTION -- clearing ROB and any speculative instructions in pipe"<<endl;
                   ROB.clear();
-                  if(TAKE_BRANCH == false) TAKE_BRANCH = true;
-                  if(TAKE_BRANCH == true ) TAKE_BRANCH = false;
+                  //if(TAKE_BRANCH == false) TAKE_BRANCH = true;
+                  //else TAKE_BRANCH = false;
                   //also need to reset the PC to the correct location..
                   PC = SAVED_PC;
                   PREDICTED_WRONG = true;
                   STOP_FILLING_PIPELINE = 1;
                   PC_STALLED = 1;
+                  if(END_REACHED) PC++;
                   //also need to clear any currently speculating instructions from the pipeline
                   clearSpeculativeFromPipeline();
                   SPECULATE = false;
@@ -1324,7 +1325,7 @@ void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
      //Should look at the opcode to figure out how to forward the appropriate data
      char data;
      //cout<<"Doing a data forward... the origin is in state "<<origin.state<<endl;
-     switch(origin.opcode & 0xF0)
+     switch(origin.opcode)
      {
           case 0x00: //CPY
                data = origin.result1;
@@ -1337,9 +1338,11 @@ void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
                //For LD/ST we only care about loads because they will effect the registers
                //In result1 is stored the effective memory address of the data
                if((origin.operand1 & 0x03) == 0x00) //LD IMMEDIATE
+               {
                    data = origin.result1;
+               }
                if((origin.operand1 & 0x03) == 0x02) //LD DISPLACEMENT
-                   data = DM[origin.result1];
+                   data = origin.result1;
                break;
           case 0x03: //IN/OUT
                if((origin.operand1 & 0x01) == 0x01) //INPUT
@@ -1381,7 +1384,8 @@ void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
           dest.data_in2 = data;
           dest.hasop2 = true;
      }
-     if(DEBUG_DFWD) cout<<"Data foward regnum "<<regnum<<" from stage "<<origin.number<<" to "<<dest.number<<" as operand "<<which_operand;
+     //cout<<"LOOKING FOR REGNUM: "<<regnum<<" and reg1="<<origin.reg1<<", reg2="<<origin.reg2<<endl;
+     if(DEBUG_DFWD) cout<<"Data forward regnum "<<regnum<<" from stage "<<origin.number<<" to "<<dest.number<<" as operand "<<which_operand;
      if(DEBUG_DFWD) printf(" -- Forwarded data of %02X\n",data);
 }
 

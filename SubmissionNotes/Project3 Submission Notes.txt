@@ -1,0 +1,59 @@
+Holden Sandlar
+Advanced Computer Architecture
+Completed 4/17/12
+HCPU with Data Forwarding, MUL/DIV, and Reorder Buffer
+
+The first part of the assignment -- implementing the MUL/DIV was very straight-forward
+My processor assumes there is pipelined multiply unit and a pipelined divide unit
+available to avoid structural hazards from occuring when two multiply or two divides
+are executed one after another. MUL takes 4 cycles in execution and DIV takes 8 cycles in execution.
+This execution time is easily changed (implemented in project 1) by the file "cyclesperinstruction"
+
+Also, the implementation of RAW data and control dependency and detection was successfully completed
+during Project 2. In this assignment I took the previous assignment a step further and added data forwarding.
+At this point the working processor with data forwarding was saved. I have included a folder "HCPU-DFWD" which
+is this saved version. (includes MUL and DIV)
+
+My Reorder Buffer (ROB) was then implemented. In my original iteration of the CPU a partial form of the ROB was
+existent already (allowed out of order execution assuming no data dependency). This was taken a step further
+for this project by allowing speculation past jump/branches. For the version I am submitting my processor
+will always speculate that the branch is taken. If it is incorrect in its speculation the reorder buffer is
+cleared and any speculative instructions currently in the pipeline are cleared. If it is correct the pipeline
+is stalled in entirety and the reorder buffer is written back in a FIFO manner, one instruction per machine cycle.
+After the ROB has been emptied any speculative instructions existing in the pipeline are serviced. Once there are no
+more speculative instructions in the pipeline normal execution continues.
+
+The loop given to test the reorder buffer was written in assmebly and assembled to be tested. Unfortunately, due to the
+complex nature of my implementation with regard to the checking of data dependencies, there is a bug which causes the combination
+of the two for loops to not work properly. I believe the bug occurs whenever a div is encountered and the out of order execution
+moves into a branch statement... mul does not seem to be a problem.
+
+That said, the multiply loop by itself does function correctly. If you would like to run it and check the output run
+the command:
+
+C:\HCPU\HCPU.exe Assembly\mulloop.asm
+
+When dropped at the prompt press "c" for continue and it will run until program end
+To inspect the contents of the data memory after execution type "pdm" and scroll up
+    ---A note about the results of this loop:
+       The result of MUL is a 16-bit number occupying 2 registers. For the sake of simplicity
+       (and sanity) the result stored into the 8-bit array element is the lower 8 bits of the
+       resulting product.
+
+To find the assembly of both loops combined go to "muldivloop.asm"
+I will say outright that it does not work as intended but you can feel free to try running it.
+It will get through the multiply section but the divide section will cause your console to crash.
+
+**Interesting:
+Out of curiosity I have revisited the loops from Project 2 and gathered more metrics
+I now have statistics about the following of my architectures and loop conditions:
+    ORIGINAL ROLLED and UNROLLED
+    DFWD ROLLED and UNROLLED
+    DFWD+ROB ROLLED and UNROLLED
+For a summary of the outcomes from these statistics check out the file HCPU/Docs/Loop Stats.xlsx
+
+Based on the outcome of these metrics for future projects I intend to use the DFWD version and not the
+ROB version of HCPU. (If you didn't look at the metrics you really should -- in any case the result is that
+the strictly data forwarding version is simpler and has much better performance than any/every other version).
+
+Enjoy!

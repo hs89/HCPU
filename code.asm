@@ -2,16 +2,8 @@
 LDI R0,06;
 LDI R1,03;
 ADD R0,R1;
-BRC :test;
+JMP :test;
 :test;
 LDI R2,04;
 SUB R0,R2;
-SUB R0,R2;
-LDI R0,01;
-LDI R1,02;
-LDI R2,03;
-LDI R3,04;
-LDI R0,05;
-LDI R1,06;
-LDI R2,06;
 END;

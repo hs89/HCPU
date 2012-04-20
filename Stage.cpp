@@ -22,7 +22,6 @@ Stage::Stage(int num)
      reg1=reg2=-1;
      hasop1 = hasop2 = false;
      dfwd = 0;
-     speculate = 0;
 }
 
 void Stage::print()
@@ -55,7 +54,7 @@ void Stage::reset()
      data_in2 = 0x00;
      state = 0;
      cyclesRemaining = reg1 = reg2 = -1;
-     speculate = 0;
+     speculative = 0;
      hasop1 = hasop2 = false;
      dfwd = 0;
 }

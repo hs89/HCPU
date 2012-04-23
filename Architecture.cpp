@@ -30,7 +30,7 @@ bool DEBUG_DFWD = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/loop.asm";
+string code_file = "Assembly/mulloop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -362,7 +362,7 @@ void clockPipeline()
      int alreadyClocked[5] = {0,0,0,0,0};
      Statistics.MC_CNT++;
      
-     if(StagesExecuting.size() > 0)
+     if(!StagesExecuting.empty())
      {
          for(int j = StagesExecuting.size()-1;j>0;j--)
          {
@@ -486,7 +486,7 @@ void iF(Stage & stagenum)
                   {
                       //Load into a register -- mark destination register
                       stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
-                      stagenum.hasop2 = true;
+                      //stagenum.hasop2 = true;
                   }
                   break;
              case 0x03:
@@ -1039,7 +1039,7 @@ bool checkDependence(Stage & stagenum)
       bool dep_on_op1 = false;
       bool dep_on_op2 = false;
       int op1regnum,op2regnum;
-      switch((int)stagenum.opcode)
+      switch(stagenum.opcode)
       {
          case 0x00:
               //CPY
@@ -1119,8 +1119,8 @@ bool checkDependence(Stage & stagenum)
          case 0x01://SWAP
               dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
               dep_on_op2 = determineIfDependent(index, (stagenum.operand1 & 0x03));
-              if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
-              if(dep_on_op2) op2regnum = (stagenum.operand1&0x03);
+              if(dep_on_op1) op1regnum = (int)((stagenum.operand1&0x0C)>>2);
+              if(dep_on_op2) op2regnum = (int)(stagenum.operand1&0x03);
               break;
       }
       
@@ -1151,7 +1151,7 @@ bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_oper
      //cout<<"index = "<<index<< " adn queue = "<<endl;
      //printStageQueue();
      //for(int i = index+1; i>0;i--)
-     for(int i = index; i<StagesExecuting.size();i++)
+     for(int i = index+1; i<StagesExecuting.size();i++)
      {
              //cout<<"Checking stage "<<StagesExecuting[i]<<" for needed data... state = "<<Pipeline[StagesExecuting[i]-1].state<<endl;
              if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||
@@ -1166,10 +1166,11 @@ bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_oper
                           stagenum.dfwd = 1;
                           return false;
                  }
-             }
-             else
-             {
-                  continue;
+                 else
+                 {
+                     stagenum.stalled = 1;
+                     return true;
+                 }   
              }
      }
      return true; //Dependency still exists
@@ -1182,7 +1183,7 @@ void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
      //Should look at the opcode to figure out how to forward the appropriate data
      char data;
      //cout<<"Doing a data forward... the origin is in state "<<origin.state<<endl;
-     switch(origin.opcode & 0xF0)
+     switch(origin.opcode)
      {
           case 0x00: //CPY
                data = origin.result1;
@@ -1197,7 +1198,7 @@ void forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
                if((origin.operand1 & 0x03) == 0x00) //LD IMMEDIATE
                    data = origin.result1;
                if((origin.operand1 & 0x03) == 0x02) //LD DISPLACEMENT
-                   data = DM[origin.result1];
+                   data = origin.result1;
                break;
           case 0x03: //IN/OUT
                if((origin.operand1 & 0x01) == 0x01) //INPUT

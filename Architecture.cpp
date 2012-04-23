@@ -30,7 +30,7 @@ bool DEBUG_DFWD = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/mulloop.asm";
+string code_file = "Assembly/muldivloop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -550,7 +550,7 @@ void DOF(Stage & stagenum)
           stagenum.stalled = 0;
      }
      if(stagenum.hasop1 && stagenum.hasop2) stagenum.stalled = 0;
-     cout<<"Stage "<<stagenum.number<<" has op1: "<<stagenum.hasop1<<" and has op2: "<<stagenum.hasop2<<endl;
+     //cout<<"Stage "<<stagenum.number<<" has op1: "<<stagenum.hasop1<<" and has op2: "<<stagenum.hasop2<<endl;
      if(stagenum.stalled == 1)
      {   
          return;
@@ -1054,8 +1054,8 @@ bool checkDependence(Stage & stagenum)
               {
                   case 0x00:
                        //Load Immediate
-                       //dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
-                       //if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+                       dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
                        break;
                   case 0x01:
                        //Store Immediate
@@ -1074,8 +1074,8 @@ bool checkDependence(Stage & stagenum)
                        dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
                        //cout<<"Looking for dependence on "<<(int)((stagenum.operand2 & 0xC0)>>6)<<endl;
                        dep_on_op2 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
-                       if(dep_on_op1) op1regnum = (int)((stagenum.operand1&0x0C)>>2);
-                       if(dep_on_op2) op2regnum = (int)((stagenum.operand2&0xC0)>>6);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+                       if(dep_on_op2) op2regnum = ((stagenum.operand2&0xC0)>>6);
                        break;
               }
               break;
@@ -1119,8 +1119,8 @@ bool checkDependence(Stage & stagenum)
          case 0x01://SWAP
               dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
               dep_on_op2 = determineIfDependent(index, (stagenum.operand1 & 0x03));
-              if(dep_on_op1) op1regnum = (int)((stagenum.operand1&0x0C)>>2);
-              if(dep_on_op2) op2regnum = (int)(stagenum.operand1&0x03);
+              if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+              if(dep_on_op2) op2regnum = (stagenum.operand1&0x03);
               break;
       }
       
@@ -1151,7 +1151,7 @@ bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_oper
      //cout<<"index = "<<index<< " adn queue = "<<endl;
      //printStageQueue();
      //for(int i = index+1; i>0;i--)
-     for(int i = index+1; i<StagesExecuting.size();i++)
+     for(int i = index; i<StagesExecuting.size();i++)
      {
              //cout<<"Checking stage "<<StagesExecuting[i]<<" for needed data... state = "<<Pipeline[StagesExecuting[i]-1].state<<endl;
              if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||

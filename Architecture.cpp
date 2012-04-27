@@ -1055,7 +1055,9 @@ bool checkDependence(Stage & stagenum)
                   case 0x00:
                        //Load Immediate
                        dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
-                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand1 & 0x0C)>>2);
+                       //if(dep_on_op1) PIPE_STALLED = 1;
+                       //else PIPE_STALLED = 0;
                        break;
                   case 0x01:
                        //Store Immediate

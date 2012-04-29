@@ -65,7 +65,6 @@ JMP :divloop;
     LDI R3,01;
     SUB R1,R3;
     ST R1,R0,11;
-    LDD R1,R0,11;
     CLT R0,R1;
     BRN :divloop;
 END;

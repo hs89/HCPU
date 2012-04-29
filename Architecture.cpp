@@ -100,6 +100,7 @@ bool anyStageStalled(); //checks if any stage in the pipeline is stalled
 bool pipelineFull(); //checks if the pipeline is full of instructions
 void printStageQueue(); //For debug.. prints the pipeline stage queue (used to determine data dependence)
 bool checkStageRegisterDependence(int,int); //Checks to see if a register number is in use by given stage number (for determining data dependence)
+bool WAW(int, int);
 /* END FUNCTION PROTOTYPE DEFS */
 
 /* GLOBAL VAR DEFS */
@@ -1054,8 +1055,12 @@ bool checkDependence(Stage & stagenum)
               {
                   case 0x00:
                        //Load Immediate
-                       dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
-                       if(dep_on_op1) op1regnum = ((stagenum.operand1 & 0x0C)>>2);
+                       //The only instance where LDI should not proceed is when
+                       //a register is going to be loaded but a prior instruction
+                       //is still going to write back to that register
+                       //dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+                       //if(dep_on_op1) op1regnum = ((stagenum.operand1 & 0x0C)>>2);
+                       return WAW(index, (stagenum.operand1 & 0x0C)>>2);
                        //if(dep_on_op1) PIPE_STALLED = 1;
                        //else PIPE_STALLED = 0;
                        break;
@@ -1129,7 +1134,7 @@ bool checkDependence(Stage & stagenum)
       //At this point we know whether there is a dependency with operand1, operand2, or both
       //We also know the register number for each of them
       //Now we should go through and figure out if any data forwarding is possible
-      
+      cout<<"Stagenum "<<stagenum.number<<" dependent on op1 = "<<dep_on_op1<<" and op2 = "<<dep_on_op2<<endl;
       if(dep_on_op1)
       {
           dep_on_op1 = checkForDataForward(stagenum, index, op1regnum, 1);
@@ -1146,6 +1151,21 @@ bool checkDependence(Stage & stagenum)
       else return false;
 }
 
+bool WAW(int index, int regnum)
+{
+     for(int i = index+1; i<StagesExecuting.size();i++)
+     {
+             if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||
+                Pipeline[StagesExecuting[i]-1].reg2 == regnum  )
+                {
+                     //A WAW hazard exists
+                     cout<<"Stage "<<Pipeline[StagesExecuting[index]-1].number<<" has a WAW hazard -- stalling!"<<endl;
+                     return true;
+                }
+     }
+     return false;
+}
+
 bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_operand)
 {
      //The return value should be false if data was forwarded -- represents no data dependency
@@ -1153,7 +1173,8 @@ bool checkForDataForward(Stage & stagenum, int index, int regnum, int which_oper
      //cout<<"index = "<<index<< " adn queue = "<<endl;
      //printStageQueue();
      //for(int i = index+1; i>0;i--)
-     for(int i = index; i<StagesExecuting.size();i++)
+     //printStageQueue();
+     for(int i = index+1; i<StagesExecuting.size();i++)
      {
              //cout<<"Checking stage "<<StagesExecuting[i]<<" for needed data... state = "<<Pipeline[StagesExecuting[i]-1].state<<endl;
              if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||

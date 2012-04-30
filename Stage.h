@@ -7,6 +7,7 @@
 #ifndef STAGE_H
 #define STAGE_H
 #include <iostream>
+#include "CacheRequest.h"
 using namespace std;
 
 class Stage
@@ -20,6 +21,7 @@ class Stage
              unsigned char result1;
              unsigned char result2;
              unsigned int  state;
+             CacheRequest c;
              bool hasop1,hasop2;
              int dfwd;
              int speculative;

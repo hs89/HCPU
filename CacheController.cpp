@@ -20,6 +20,7 @@ CacheRequest CacheController::write(CacheRequest& address, unsigned char data)
 CacheRequest CacheController::read(CacheRequest& address)
 {
              unsigned char a = address.request;
+             cout<<"address = "<<hex<<(int)a<<endl;
              if(CacheIndex[address.groupid][address.blockid][0] == (a&0xFC))
              {
                  //hit
@@ -37,7 +38,7 @@ CacheRequest CacheController::read(CacheRequest& address)
              else
              {
                  //miss
-                 int replaceselect = getNotLastUsed(address.groupid,address.blockid)
+                 int replaceselect = getNotLastUsed(address.groupid,address.blockid);
                  putBlockInCache(address.groupid, address.blockid, replaceselect , a);
                  if(replaceselect == 0)
                  {

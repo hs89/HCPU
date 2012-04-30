@@ -5,6 +5,13 @@
   Cache Request
 */
 #include "CacheRequest.h"
+CacheRequest::CacheRequest()
+{
+    request = 0x00;
+    groupid = -1;
+    blockid = -1;
+    byteid = -1;
+}
 CacheRequest::CacheRequest(unsigned char r)
 {
      request = r;

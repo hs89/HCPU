@@ -17,6 +17,7 @@ class CacheRequest
              int groupid, blockid, byteid;
              int stallfor;
              unsigned char byteread;
+             CacheRequest();
              CacheRequest(unsigned char);
              void print();
       private:

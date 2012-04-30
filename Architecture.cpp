@@ -32,7 +32,7 @@ bool DEBUG_DFWD = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/muldivloop.asm";
+string code_file = "Testcode/cachetest.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -708,7 +708,13 @@ void execute(Stage & stagenum)
                        break;
                   case 0x02:
                        //Load Displacement
-                       stagenum.result1 = DM[stagenum.data_in1 + stagenum.data_in2]; //Computing MAeff
+                       cout<<"Loading displacement -- USING CACHE"<<endl;
+                       stagenum.c = CacheRequest(stagenum.data_in1 + stagenum.data_in2);
+                       Cache.read(stagenum.c);
+                       stagenum.c.print();
+                       stagenum.result1 = stagenum.c.byteread;
+                       cout<<"END USING CACHE"<<endl;
+                       //stagenum.result1 = DM[stagenum.data_in1 + stagenum.data_in2]; //Computing MAeff
                        break;
                   case 0x03:
                        //Store Displacement

@@ -1,7 +1,7 @@
 [Project]
-FileName=CompArchProject1.dev
+FileName=HCPU.dev
 Name=CompArchProject1
-UnitCount=9
+UnitCount=13
 Type=1
 Ver=1
 ObjFiles=
@@ -98,7 +98,7 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit11]
-FileName=Stats.cpp
+FileName=CacheController.h
 CompileCpp=1
 Folder=
 Compile=1
@@ -108,7 +108,7 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit12]
-FileName=Stage.h
+FileName=CacheRequest.h
 CompileCpp=1
 Folder=
 Compile=1
@@ -118,7 +118,7 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit13]
-FileName=Stage.cpp
+FileName=CacheRequest.cpp
 CompileCpp=1
 Folder=
 Compile=1
@@ -159,6 +159,16 @@ BuildCmd=
 
 [Unit9]
 FileName=Stage.cpp
+CompileCpp=1
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit10]
+FileName=CacheController.cpp
 CompileCpp=1
 Folder=
 Compile=1

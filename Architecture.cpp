@@ -10,6 +10,8 @@
 #include <deque>
 #include "Assembler.h"
 #include "Registers.h"
+#include "CacheController.h"
+#include "CacheRequest.h"
 #include "Stats.h"
 #include "Stage.h"
 
@@ -106,6 +108,7 @@ bool WAW(int, int);
 /* GLOBAL VAR DEFS */
 Registers RF(register_file); //Create a register file
 Stats Statistics; //Create a statistics object
+CacheController Cache(DM,256);
 /* END GLOBAL VAR DEFS */
 
 int main(int argc, char * argv[])
@@ -1134,7 +1137,7 @@ bool checkDependence(Stage & stagenum)
       //At this point we know whether there is a dependency with operand1, operand2, or both
       //We also know the register number for each of them
       //Now we should go through and figure out if any data forwarding is possible
-      cout<<"Stagenum "<<stagenum.number<<" dependent on op1 = "<<dep_on_op1<<" and op2 = "<<dep_on_op2<<endl;
+      if(DEBUG_DFWD) cout<<"Stagenum "<<stagenum.number<<" dependent on op1 = "<<dep_on_op1<<" and op2 = "<<dep_on_op2<<endl;
       if(dep_on_op1)
       {
           dep_on_op1 = checkForDataForward(stagenum, index, op1regnum, 1);
@@ -1159,7 +1162,7 @@ bool WAW(int index, int regnum)
                 Pipeline[StagesExecuting[i]-1].reg2 == regnum  )
                 {
                      //A WAW hazard exists
-                     cout<<"Stage "<<Pipeline[StagesExecuting[index]-1].number<<" has a WAW hazard -- stalling!"<<endl;
+                     if(DEBUG_DFWD) cout<<"Stage "<<Pipeline[StagesExecuting[index]-1].number<<" has a WAW hazard -- stalling!"<<endl;
                      return true;
                 }
      }

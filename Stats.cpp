@@ -14,7 +14,7 @@ Stats::Stats()
               SUB_CNT = AND_CNT = CEQ_CNT = CLT_CNT =
               NOT_CNT = MUL_CNT = DIV_CNT = SHLA_CNT = 
               SHLL_CNT = SHRA_CNT = SHRL_CNT = JMP_CNT = BR_CNT =
-              CALL_CNT = RET_CNT = RETI_CNT = SIMD_CNT = 0;
+              CALL_CNT = RET_CNT = RETI_CNT = SIMD_CNT = C_MISS = C_HIT = 0;
               
               I_CNT = 0;
               STALL_CNT = 0;
@@ -216,6 +216,8 @@ void Stats::print()
      printStuff("LD DISPLACEMENT COUNT",LDD_CNT);
      printStuff("LD IMMEDIATE COUNT",LDI_CNT);
      printStuff("ST DISPLACEMENT COUNT",STD_CNT);
+     printStuff("CACHE HITS: ",C_HIT);
+     printStuff("CACHE MISSES: ",C_MISS);
      printStuff("IN COUNT",IN_CNT);
      printStuff("OUT COUNT",OUT_CNT);
      printStuff("ADD COUNT",ADD_CNT);

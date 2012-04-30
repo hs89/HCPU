@@ -17,7 +17,7 @@ class CacheController
       public:
              CacheController(unsigned char*,int);
              CacheRequest write(CacheRequest&, unsigned char);
-             CacheRequest read(CacheRequest&);
+             void read(CacheRequest&);
              void putBlockInCache(int, int, int, unsigned char);
              int getNotLastUsed(int, int);
              void PrintDataMemory();

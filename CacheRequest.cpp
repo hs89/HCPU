@@ -23,6 +23,7 @@ CacheRequest::CacheRequest(unsigned char r)
 
 void CacheRequest::print()
 {
+     printf("Request = %02X\n",request);
      cout<<dec<<"GID = "<<groupid<<"; BID = "<<blockid<<"; BYTEID = "<<byteid<<endl;
      printf("Byteread = %02X\n",byteread);
      printf("Stallfor = %d\n",stallfor);

@@ -17,10 +17,9 @@ CacheRequest CacheController::write(CacheRequest& address, unsigned char data)
 {
              
 }
-CacheRequest CacheController::read(CacheRequest& address)
+void CacheController::read(CacheRequest& address)
 {
              unsigned char a = address.request;
-             cout<<"address = "<<hex<<(int)a<<endl;
              if(CacheIndex[address.groupid][address.blockid][0] == (a&0xFC))
              {
                  //hit
@@ -54,9 +53,7 @@ CacheRequest CacheController::read(CacheRequest& address)
                  
              }    
              
-             address.byteread = Cache[address.groupid][address.blockid][address.byteid];         
-             
-             return address;
+             address.byteread = Cache[address.groupid][address.blockid][address.byteid];
 }
 
 int CacheController::getNotLastUsed(int gid, int bid)

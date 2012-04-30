@@ -26,6 +26,7 @@ bool INTERRUPT_DEBUG = true;
 bool FLAG_DEBUG = true;
 bool REGISTER_DEBUG = true;
 bool DEBUG_DFWD = true;
+bool DEBUG_CACHE = true;
 /*    END DEBUG FLAG DEFS    */
 
 /*  Files to be loaded:  */
@@ -707,13 +708,10 @@ void execute(Stage & stagenum)
                        //No such command
                        break;
                   case 0x02:
-                       //Load Displacement
-                       cout<<"Loading displacement -- USING CACHE"<<endl;
-                       stagenum.c = CacheRequest(stagenum.data_in1 + stagenum.data_in2);
+                       //Load Displacement                  
+                       stagenum.c = CacheRequest(stagenum.data_in1 + stagenum.data_in2);         
                        Cache.read(stagenum.c);
-                       stagenum.c.print();
                        stagenum.result1 = stagenum.c.byteread;
-                       cout<<"END USING CACHE"<<endl;
                        //stagenum.result1 = DM[stagenum.data_in1 + stagenum.data_in2]; //Computing MAeff
                        break;
                   case 0x03:
@@ -721,6 +719,26 @@ void execute(Stage & stagenum)
                        stagenum.result1 = stagenum.data_in1; // This is the value we will store
                        stagenum.result2 = stagenum.data_in2 + (stagenum.operand2 & 0x3F); //This is the location we will store to
                        break;
+              }
+              switch(stagenum.operand1 &0x03)
+              {
+                  case 0x02:
+                  //case 0x03:
+                      if(stagenum.c.stallfor > 0)
+                      {
+                           if(DEBUG_CACHE) cout<<"CACHE MISS in stage "<<stagenum.number<<endl;
+                           if(DEBUG_CACHE) cout<<"Stalling everything until we get required data from cache"<<endl;
+                           
+                           Statistics.C_MISS++;
+                      }
+                      else
+                      {
+                          if(DEBUG_CACHE) cout<<"CACHE HIT in stage "<<stagenum.number<<endl;
+                          Statistics.C_HIT++;
+                      }
+                      break;
+                  default:
+                          break;
               }
               break;
          case 0x03:

@@ -16,7 +16,7 @@ class Stats
              SUB_CNT, AND_CNT, CEQ_CNT, CLT_CNT,
              NOT_CNT, MUL_CNT, DIV_CNT, SHLA_CNT, 
              SHLL_CNT, SHRA_CNT, SHRL_CNT, JMP_CNT, BR_CNT,
-             CALL_CNT, RET_CNT, RETI_CNT, SIMD_CNT;
+             CALL_CNT, RET_CNT, RETI_CNT, SIMD_CNT, C_MISS, C_HIT;
              
              int I_CNT;
              int STALL_CNT;

@@ -13,24 +13,70 @@ CacheController::CacheController(unsigned char * memory, int s)
      
 }
 
-CacheRequest CacheRequest::write(CacheRequest& address, unsigned char data)
+CacheRequest CacheController::write(CacheRequest& address, unsigned char data)
 {
              
 }
-CacheRequest CacheRequest::read(CacheRequest& address)
+CacheRequest CacheController::read(CacheRequest& address)
 {
-             if(Cache[address.groupid][0] == DM[address.request])
+             unsigned char a = address.request;
+             if(CacheIndex[address.groupid][address.blockid][0] == (a&0xFC))
              {
-                  //cache hit
+                 //hit
+                 LastUsed[address.groupid][0] = 1;
+                 LastUsed[address.groupid][1] = 0;
+                 address.stallfor = 0;
              }
-             else if(Cache[address.groupid][1] == DM[address.request])
+             else if(CacheIndex[address.groupid][address.blockid][1] == (a&0xFC))
              {
-                  //cache hit
+                  //hit
+                  LastUsed[address.groupid][1] = 1;
+                  LastUsed[address.groupid][0] = 0;
+                  address.stallfor = 0;
              }
              else
              {
-                 //cache miss
-             }
+                 //miss
+                 int replaceselect = getNotLastUsed(address.groupid,address.blockid)
+                 putBlockInCache(address.groupid, address.blockid, replaceselect , a);
+                 if(replaceselect == 0)
+                 {
+                     LastUsed[address.groupid][0] = 1;
+                     LastUsed[address.groupid][1] = 0;
+                 }
+                 else
+                 {
+                     LastUsed[address.groupid][1] = 1;
+                     LastUsed[address.groupid][0] = 0;
+                 }
+                 address.stallfor = 4;
+                 
+             }    
+             
+             address.byteread = Cache[address.groupid][address.blockid][address.byteid];         
+             
+             return address;
+}
+
+int CacheController::getNotLastUsed(int gid, int bid)
+{
+     if(CacheIndex[gid][bid][0] == 1)
+     {
+         return 0;
+     }
+     else
+     {
+         return 1;
+     }
+}
+
+void CacheController::putBlockInCache(int gid, int blid, int blsel, unsigned char request)
+{
+     CacheIndex[gid][blid][blsel] = (request&0xFC);
+     Cache[gid][blid][0] = DM[(request&0xFC) | 0x00];
+     Cache[gid][blid][1] = DM[(request&0xFC) | 0x01];
+     Cache[gid][blid][2] = DM[(request&0xFC) | 0x02];
+     Cache[gid][blid][3] = DM[(request&0xFC) | 0x03];
 }
 
 

@@ -18,10 +18,13 @@ class CacheController
              CacheController(unsigned char*,int);
              CacheRequest write(CacheRequest&, unsigned char);
              CacheRequest read(CacheRequest&);
+             void putBlockInCache(int, int, int, unsigned char);
+             int getNotLastUsed(int, int);
              void PrintDataMemory();
              
       private:
-             unsigned char Cache[4][2];
+             unsigned char Cache[4][2][4];
+             unsigned char CacheIndex[4][2][2];
              unsigned int LastUsed[4][2];
              unsigned char * DM;
              int size;

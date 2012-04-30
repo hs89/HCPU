@@ -12,11 +12,13 @@ CacheRequest::CacheRequest(unsigned char r)
      blockid = (r & 0x3C)>>2;
      byteid = (r&0x03);
      
-     
 }
 
 void CacheRequest::print()
 {
      cout<<dec<<"GID = "<<groupid<<"; BID = "<<blockid<<"; BYTEID = "<<byteid<<endl;
+     printf("Byteread = %02X\n",byteread);
+     printf("Stallfor = %d\n",stallfor);
+     
 }
 

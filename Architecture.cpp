@@ -33,7 +33,7 @@ bool DEBUG_CACHE = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Testcode/cachetest.asm";
+string code_file = "Assembly/muldivloop.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -63,6 +63,7 @@ int instructionClocked = 0;
 bool SPECULATE = 0;
 int I_SPECULATE_CNT = 0;
 bool RUN_TO_COMPLETION_ASKED = false;
+string autofinish;
 /*     END GLOBAL FLAG DEFS   */
 
 /* FUNCTION PROTOTYPE DEFS */
@@ -285,7 +286,7 @@ int main(int argc, char * argv[])
                 RUN_TO_COMPLETION_ASKED = true;
                 command = "n";
                 RUNNING = 1;
-
+                autofinish = "y";
                 continue;
            }
            else if(command == "ps")
@@ -315,20 +316,21 @@ int main(int argc, char * argv[])
                      {      
                          cout<<"************************** PROGRAM END REACHED **************************"<<endl;
                          cout<<"Would you like to automatically finish the rest of execution? (y/n): ";
-                         string autofinish;
+                         
                          cin>>autofinish;
                          RUN_TO_COMPLETION_ASKED = true;
-                         if(autofinish.at(0) == 'Y' || autofinish.at(0) == 'y')
-                         {
-                                             
-                              finishPipelineExecution();
-                              RUNNING = 1;
-                              continue;                    
-                         }           
                      }
-                     finishPipelineExecution();         
+                     if(autofinish.at(0) == 'Y' || autofinish.at(0) == 'y')
+                     {
+                                         
+                          finishPipelineExecution();
+                          RUNNING = 1;
+                          continue;                    
+                     }           
+                     
+                     //finishPipelineExecution();         
                      PC_STALLED = 1;
-                     continue;
+                     //continue;
                 }
                 else if(PC == PMEND && allStagesComplete())
                 {
@@ -717,29 +719,12 @@ void execute(Stage & stagenum)
                   case 0x03:
                        //Store Displacement
                        stagenum.result1 = stagenum.data_in1; // This is the value we will store
-                       stagenum.result2 = stagenum.data_in2 + (stagenum.operand2 & 0x3F); //This is the location we will store to
+                       stagenum.c = CacheRequest(stagenum.data_in2 + (stagenum.operand2 & 0x3F));
+                       Cache.write(stagenum.c, stagenum.result1);
+                       //stagenum.result2 = stagenum.data_in2 + (stagenum.operand2 & 0x3F); //This is the location we will store to
                        break;
               }
-              switch(stagenum.operand1 &0x03)
-              {
-                  case 0x02:
-                  //case 0x03:
-                      if(stagenum.c.stallfor > 0)
-                      {
-                           if(DEBUG_CACHE) cout<<"CACHE MISS in stage "<<stagenum.number<<endl;
-                           if(DEBUG_CACHE) cout<<"Stalling everything until we get required data from cache"<<endl;
-                           
-                           Statistics.C_MISS++;
-                      }
-                      else
-                      {
-                          if(DEBUG_CACHE) cout<<"CACHE HIT in stage "<<stagenum.number<<endl;
-                          Statistics.C_HIT++;
-                      }
-                      break;
-                  default:
-                          break;
-              }
+              
               break;
          case 0x03:
               //IN/OUT
@@ -884,6 +869,33 @@ void MWB(Stage & stagenum)
               //LD/ST
               switch(stagenum.operand1 & 0x03)
               {
+                  case 0x02:
+                       cout<<"CACHE FOR LDD: ";
+                  case 0x03:
+                       if(stagenum.operand1 & 0x03 != 0x02) cout<<"CACHE FOR ST: ";
+                      if(stagenum.c.stallfor > 0)
+                      {
+                           if(DEBUG_CACHE) cout<<"CACHE MISS in stage "<<stagenum.number<<endl;
+                           if(DEBUG_CACHE) cout<<"Stalling due to cache:"<<endl;
+                           Statistics.C_MISS++;
+                           for(int i = 0; i<stagenum.c.stallfor-1; i++)
+                           {
+                                   cout<<"CACHE STALL -- stage "<<stagenum.number<<endl;
+                                   Statistics.MC_CNT++;
+                                   Statistics.STALL_CNT++;
+                           }
+                      }
+                      else
+                      {
+                          if(DEBUG_CACHE) cout<<"CACHE HIT in stage "<<stagenum.number<<endl;
+                          Statistics.C_HIT++;
+                      }
+                      break;
+                  default:
+                          break;
+              } 
+              switch(stagenum.operand1 & 0x03)
+              {
                   case 0x00:
                        //Load Immediate
                        break;
@@ -893,11 +905,13 @@ void MWB(Stage & stagenum)
                        break;
                   case 0x02:
                        //Load Displacement
+                       printf("Read %02X from DM[%02X]\n",stagenum.c.byteread, stagenum.c.request);
                        break;
                   case 0x03:
                        //Store Displacement
-                       DM[stagenum.result2] = stagenum.result1;
-                       printf("Stored %02X to DM[%02X] in stage %d\n",stagenum.result1,stagenum.result2,stagenum.number);
+                       printf("Wrote %02X to DM[%02X]\n",stagenum.result1, stagenum.c.request);
+                       //DM[stagenum.result2] = stagenum.result1;
+                       //printf("Stored %02X to DM[%02X] in stage %d\n",stagenum.result1,stagenum.result2,stagenum.number);
                        break;
               }
               break;

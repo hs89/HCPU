@@ -1,0 +1,59 @@
+Holden Sandlar
+Advanced Computer Architecture - 0301-810
+Completed 5/3/12
+Data Cache Implementation
+
+First of all, the multiply/divide loop for the previous assignment (ROB)
+did not execute properly on my CPU. This issue was caused by a WAW hazard
+due to the out of order execution on my CPU. The CPU has been reverted to
+the previous version (No ROB, but DFWD works) and the WAW has been fixed.
+The code found in "Assembly/muldivloop.asm" now executes without any
+issues.
+
+For part 1,2, and 3 of the assignment see "Docs/HW4.docx"
+For part 4 of the assignment see "Docs/SimultaneousMultithreadingResponse.docx"
+
+Part 5:
+CACHE IMPLEMENTATION:
+
+For the design of my cache implementation I wrote a CacheController class
+and a CacheRequest class which are utilized in the main architecture cpp
+for the simulator.
+
+On a cache hit (either read or write) the processor is not stalled, and
+will recieve the data immediately from the cache (1 cycle).
+
+On a cache miss (either read or write) the processor is stalled 4 cycles
+while the cache controller retrieves the appropriate block, places it in
+cache, and then returns the byte read to the processor (through the use
+of a CacheRequest structure).
+
+As usual, I have included a debug flag at the top of Architecture.cpp
+which allows cache debug messages to be toggled on and off. By default,
+debug messages are turned on.
+
+The cache write strategy I decided to implement is a write-through scheme.
+The reason for this choice is purely for ease of debugging. The default code
+which will run on the processor is the multiply/divide loop specified in the
+assignment. However, I wrote some code used to test the cache controller and
+cache request classes. This code can be found in "Testcode/cachetest.asm"
+
+To run this test code on the processor type (at a command prompt):
+"HCPU.exe Testcode/cachetest.asm"
+
+You may also notice that I have included a means of gathering metrics on the
+number of cache misses and hits. This metrics are displayed when the program
+end is encountered. Also, feel free to type "pdm" at any time to dump the
+data memory to your console for inspection.
+
+More notes:
+
+-"Docs/LoopDivHexMath.xlsx" contains some hex math which shows what the output
+of the data memory should be after running the mul/div loop. This was created
+mainly for my own sanity in checking the correctness of my output but you may
+also find it useful in order to check the validity of my CPU for yourself.
+
+-"Docs/CacheArrangement.jpg" shows a hand sketch of my cache organization
+(mainly just a summary of the assignment statement)
+
+Enjoy!

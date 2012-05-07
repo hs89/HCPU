@@ -15,6 +15,9 @@ Registers::Registers(string register_file)
      R3 = 0x00;
      R0_in_use = R1_in_use = R2_in_use = R3_in_use = 0;
 }
+Registers::Registers()
+{
+}
 void Registers::writeToDisk()
 {
      ofstream outfile(RF.c_str(), ios::trunc);

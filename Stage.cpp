@@ -23,6 +23,9 @@ Stage::Stage(int num)
      hasop1 = hasop2 = false;
      dfwd = 0;
 }
+Stage::Stage()
+{
+}
 
 void Stage::print()
 {

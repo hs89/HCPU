@@ -28,6 +28,7 @@ class Stage
              int number;
              int cyclesRemaining;
              Stage(int);
+             Stage();
              void print();
              void reset();
       private:

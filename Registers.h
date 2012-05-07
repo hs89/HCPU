@@ -18,6 +18,7 @@ class Registers
              int R0_in_use, R1_in_use, R2_in_use, R3_in_use;
              string RF;
              Registers(string);
+             Registers();
              void writeToDisk();
              void readFromDisk();
              void setRegister(int,char);

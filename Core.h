@@ -7,6 +7,8 @@
 #include "Registers.h"
 #include "Stats.h"
 #include "Stage.h"
+using namespace std;
+
 class Core
 {
   public:

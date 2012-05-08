@@ -1,7 +1,7 @@
 [Project]
 FileName=HCPU.dev
 Name=CompArchProject1
-UnitCount=11
+UnitCount=13
 Type=1
 Ver=1
 ObjFiles=
@@ -108,7 +108,7 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit12]
-FileName=Stage.h
+FileName=Communicator.h
 CompileCpp=1
 Folder=
 Compile=1
@@ -118,7 +118,7 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit13]
-FileName=Stage.cpp
+FileName=Communicator.cpp
 CompileCpp=1
 Folder=
 Compile=1

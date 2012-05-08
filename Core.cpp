@@ -7,12 +7,6 @@
 
 
 #include "Core.h"
-
-
-using namespace std;
-
-
-
 Core::Core(string mc_file, string rfile)
 {
     

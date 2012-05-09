@@ -20,7 +20,7 @@ int main(int argc, char * argv[])
     Assembler p_asm = Assembler("opcodes"); 
     Assembler s_asm = Assembler("opcodes");
     p_asm.Assemble("Assembly/procnode.asm","PNODE_MC");
-    s_asm.Assemble("Assembly/interrupttest.asm","SNODE_MC");
+    s_asm.Assemble("Assembly/supernode.asm","SNODE_MC");
     
     cout<<"\nAssembled Successfully -- type ppm to view program memory"<<endl;
     
@@ -70,16 +70,22 @@ int main(int argc, char * argv[])
          SPP0.communicate();
     }
     cout<<"BREAK"<<endl;
+    setDebug(*SP, false);
+    setDebug(*P0, true);
     while(command != "q")
     {
          cout<<"$ ";
          cin>>command;
          if(command == "n")
          {
-              setDebug(*SP, false);
-              setDebug(*P0, true);
+              
+         }
+         if(command == "ppm")
+         {
+              P0->Core::printProgramMemory();
          }
          P0->clockCore();
+         SPP0.communicate();
     }
     system("pause");
       

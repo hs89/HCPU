@@ -100,7 +100,7 @@ int Core::clockCore()
     
     registerInterrupts();
     int interruptnum = InterruptRegistered();
-    if(interruptnum != -1)
+    if(interruptnum != -1 && INTERRUPTED != 1)
     {
          if(!allStagesComplete())
          {
@@ -119,6 +119,7 @@ int Core::clockCore()
                   PC_STALLED = 0;
                   STOP_FILLING_PIPELINE = 0;
                   PM[0xFF - interruptnum] = 0;
+                  Interrupts[interruptnum] = -1;
                   return 0;
              }
          }
@@ -267,12 +268,12 @@ void Core::iF(Stage & stagenum)
                   break;
              case 0x03:
                   //IN/OUT
-                  if(stagenum.opcode & 0x01 == 0x00)
-                  {
+                  //if(stagenum.opcode & 0x01 == 0x00)
+                  //{
                       //IN -- mark destination register
                       stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
                       stagenum.hasop2 = true;
-                  }
+                  //}
                   //STOP_FILLING_PIPELINE = 1;
                   //PC_STALLED = 1;
                   break;
@@ -793,6 +794,8 @@ void Core::WB(Stage & stagenum)
               }
               STOP_FILLING_PIPELINE = 0;
               PC_STALLED = 0;
+              INTERRUPTED = 0;
+              PC--;
               resetFlags();
               break;
          case 0x07:

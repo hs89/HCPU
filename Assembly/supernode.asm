@@ -1,6 +1,6 @@
 :main;
 LDI R0,00;
-LDI R1,BB;
+LDI R1,01;
 LDI R2,BC;
 LDI R3,BD;
 OUT R0,04;

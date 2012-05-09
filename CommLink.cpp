@@ -26,8 +26,11 @@ void CommLink::communicate()
      }
      if(slave->readFromIO)
      {
+          printf("Slave read from IO.. analyzing transmission: \n");
+          printf("Slave Read %02X",TXFIFO.back());
           TXFIFO.pop_back();
           slave->IO[0x00] = TXFIFO.back();
+          slave->readFromIO = false;
      }
 }
 

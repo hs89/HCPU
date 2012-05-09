@@ -21,6 +21,7 @@ class Assembler
               int written_count;
               int num_of_operands, is_label,linenumber;
               string opcode, operand1, operand2, operand3;
+              unsigned char RISRA,TISRA;
               int endofprog;
               unsigned char iw1, iw2;
               map<string,char> instructionTable;

@@ -107,18 +107,8 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit12]
-FileName=Communicator.h
-CompileCpp=1
-Folder=
-Compile=1
-Link=1
-Priority=1000
-OverrideBuildCmd=0
-BuildCmd=
-
 [Unit13]
-FileName=Communicator.cpp
+FileName=CommLink.cpp
 CompileCpp=1
 Folder=
 Compile=1
@@ -169,6 +159,16 @@ BuildCmd=
 
 [Unit10]
 FileName=Core.h
+CompileCpp=1
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit12]
+FileName=CommLink.h
 CompileCpp=1
 Folder=
 Compile=1

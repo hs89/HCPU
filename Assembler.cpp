@@ -10,7 +10,7 @@
 Assembler::Assembler(string opcode_file)
 {
      //Need to load in the instruction mapping
-     ASSEMBLER_DEBUG = false;
+     ASSEMBLER_DEBUG = true;
      ifstream input(opcode_file.c_str());
      string text;
      string hex;
@@ -86,6 +86,14 @@ void Assembler::Assemble(string input_file, string output_file)
               else
               {
                   //need to save this label and the corresponding starting address of its instruction sequence
+                  if(line == ":RXISR")
+                  {
+                      RISRA = written_count;
+                  }
+                  if(line == ":TXISR")
+                  {
+                      TISRA = written_count;
+                  }
                   if(ASSEMBLER_DEBUG) cout<<"Starting address of label labelStart["<<line<<"] = "<<dec<<written_count<<endl;
                   labelStart[line] = written_count;
               }

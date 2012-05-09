@@ -56,6 +56,9 @@ class Core
         bool SPECULATE;
         int I_SPECULATE_CNT;
         bool RUN_TO_COMPLETION_ASKED;
+        bool wroteToIO,readFromIO;
+        unsigned char IOADDR;
+        unsigned char RXISRADDR,TXISRADDR;
         /*     END GLOBAL FLAG DEFS   */
         
         
@@ -65,7 +68,8 @@ class Core
         Stats Statistics; //Create a statistics object
         /* END GLOBAL VAR DEFS */
         
-         Core::Core(string, string);
+        Core::Core(string, string, unsigned char, unsigned char);
+        Core::Core();
         int Core::clockCore(string);
          
          /* FUNCTION PROTOTYPE DEFS */

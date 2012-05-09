@@ -7,10 +7,11 @@
 
 
 #include "Core.h"
-Core::Core(string mc_file, string rfile)
+Core::Core(string mc_file, string rfile, unsigned char TISRA, unsigned char RISRA)
 {
     
-    
+    TXISRADDR = TISRA;
+    RXISRADDR = RISRA;
     PIPE_DEBUG = true;
     PRINT_FINAL_STATE = true;
     PRINT_PC = true;
@@ -55,11 +56,19 @@ Core::Core(string mc_file, string rfile)
     loadProgramMemory(machine_code_file);  
     resetFlags();
     
+    wroteToIO = readFromIO = false;
+    IOADDR = 0x00;
+    //RXISRADDR = RISRA;
+    
     //printProgramMemory();
     //printCyclesPerInstruction(); //Prints cycles per instruction for each instruction
     //testRegisters(); //Tests the Register File Class   
     
 
+}
+Core::Core()
+{
+            wroteToIO = readFromIO = false;
 }
 
 int Core::clockCore(string command)
@@ -804,6 +813,8 @@ void Core::MWB(Stage & stagenum)
                        //Output
                        IO[stagenum.operand2] = stagenum.result1;
                        printf("Wrote %02X to IO[%02X]\n",stagenum.result1,stagenum.operand2);
+                       wroteToIO = true;
+                       IOADDR = stagenum.operand2;
                        break;
               }
               break;
@@ -856,6 +867,8 @@ void Core::WB(Stage & stagenum)
                        //Input
                        RF.setRegister((stagenum.operand1 & 0x0C)>>2, stagenum.result1);
                        printf("Read %02X from IO[%02X]\n",RF.getRegister((stagenum.operand1&0x0C)>>2),stagenum.operand2);
+                       readFromIO = true;
+                       IOADDR = stagenum.operand2;
                        break;
                   case 0x01:
                        //Output

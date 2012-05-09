@@ -1,0 +1,6 @@
+:main
+LDI R0,00;
+LDI R1,00;
+LDI R2,00;
+LDI R3,00;
+END;

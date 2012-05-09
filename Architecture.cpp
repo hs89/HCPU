@@ -3,12 +3,13 @@
 #include <deque>
 #include "Assembler.h"
 #include "Core.h"
+#include "CommLink.h"
+using namespace std;
 
 string main_code = "Assembly/muldivloop.asm";
 string machine_code_file = "MACHINE_CODE";
 
 void setDebug(Core&,bool);
-void communicateData(Core&,Core&,Core&,Core&,Core&);
 int PCoreInUse[4] = {0,0,0,0};
 
 
@@ -22,11 +23,12 @@ int main(int argc, char * argv[])
     p_asm.Assemble("Assembly/procnode.asm","PNODE_MC");
     s_asm.Assemble("Assembly/supernode.asm","SNODE_MC");
     
-    Core SP = Core("SNODE_MC","sp_rfile");
-    Core P0 = Core("PNODE_MC","pn0_rfile");
-    Core P1 = Core("PNODE_MC","pn1_rfile");
-    Core P2 = Core("PNODE_MC","pn2_rfile");
-    Core P3 = Core("PNODE_MC","pn3_rfile");
+    Core SP = Core("SNODE_MC","sp_rfile",s_asm.TISRA, s_asm.RISRA);
+    Core P0 = Core("PNODE_MC","pn0_rfile",p_asm.TISRA, p_asm.RISRA);
+    Core P1 = Core("PNODE_MC","pn1_rfile",p_asm.TISRA, p_asm.RISRA);
+    Core P2 = Core("PNODE_MC","pn2_rfile",p_asm.TISRA, p_asm.RISRA);
+    Core P3 = Core("PNODE_MC","pn3_rfile",p_asm.TISRA, p_asm.RISRA);
+    CommLink SPP0 = CommLink(SP,P0,0x04,0x00,0x09,0x05,0x0A,0x0B);
     
     string command;
     cout<<"Welcome to HCPU -- type help or ? for a command listing"<<endl;
@@ -50,21 +52,10 @@ int main(int argc, char * argv[])
              command = "n";
          }
          stop = SP.clockCore(command);
-         communicateData(SP,P0,P1,P2,P3);
     }
     system("pause");
       
     return 0;
-}
-
-void communicateData(Core &SP,Core &P0,Core &P1,Core &P2,Core &P3)
-{
-     //SP.IO[0x00] holds info about what data will be transferred next cycle
-     switch(SP.IO[0x00])
-     {
-          case 0x01:
-               break; 
-     }
 }
 
 void setDebug(Core& c, bool debug)

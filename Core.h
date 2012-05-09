@@ -59,6 +59,8 @@ class Core
         bool wroteToIO,readFromIO;
         unsigned char IOADDR;
         unsigned char RXISRADDR,TXISRADDR;
+        int Interrupts[4];
+        bool savedStateToServiceInterrupt;
         /*     END GLOBAL FLAG DEFS   */
         
         
@@ -70,9 +72,10 @@ class Core
         
         Core::Core(string, string, unsigned char, unsigned char);
         Core::Core();
-        int Core::clockCore(string);
+        int Core::clockCore();
          
          /* FUNCTION PROTOTYPE DEFS */
+        int Core::InterruptRegistered();
         void Core::testRegisters(); //Prototype for register class test -- debug code
         void Core::printState(); //Debug code
         void Core::loadCyclesPerInstruction(string); //Prototype to initialize the Cycles array

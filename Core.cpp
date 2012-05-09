@@ -58,7 +58,9 @@ Core::Core(string mc_file, string rfile, unsigned char TISRA, unsigned char RISR
     
     wroteToIO = readFromIO = false;
     IOADDR = 0x00;
-    //RXISRADDR = RISRA;
+    Interrupts[0] = 0; Interrupts[1] = 0;
+    Interrupts[2] = 0; Interrupts[3] = 0;
+    savedStateToServiceInterrupt = false;
     
     //printProgramMemory();
     //printCyclesPerInstruction(); //Prints cycles per instruction for each instruction
@@ -71,213 +73,59 @@ Core::Core()
             wroteToIO = readFromIO = false;
 }
 
-int Core::clockCore(string command)
+int Core::clockCore()
 {
-       if(PC == PMEND && allStagesComplete())
-       {
-             if(PRINT_FINAL_STATE)
-             {
-                 Statistics.print();
-                 RF.print();
-                 printFlags();
-                 PRINT_FINAL_STATE = false;
-             }
-             RUNNING = 0;
-       }
-       if(command == "exit" || command == "q") exit(0);
-       else if(command == "info") { printState(); return 0; }
-       else if(command == "help" || command == "?")
-       {
-            cout<<
-            "-----------------\n"<<
-            "Control Commands \n"<<
-            "-----------------\n"<<
-            "(exit || q) - quit simulator\n"<<
-            "(help || ?) - show this help menu\n"<<
-            "n           - clock next machine cycle\n"<<
-            "ni <number> - clock <number> cycles\n"<<
-            "c           - clock machine cycles automatically to end of program\n"<<
-            "            \n"<<
-            "-----------------\n"<<
-            "Debug Commands   \n"<<
-            "-----------------\n"<<
-            "pdf - PRINT TOGGLE FLAGS STATUS'\n"<<
-            "ppc - Print PC Debug TOGGLE\n"<<
-            "pd -  Pipe Debug TOGGLE\n"<<
-            "pfc - Print final statistics TOGGLE\n"<<
-            "pcd - Print control debug TOGGLE\n"<<
-            "pid - Print interrupt debug TOGGLE\n"<<
-            "pfd - Print flag debug TOGGLE\n"<<
-            "prd - Print register debug TOGGLE\n"<<
-            "            \n"<<
-            "-----------------\n"<<
-            "Info Commands    \n"<<
-            "-----------------\n"<<
-            "pp  - Print Pipeline info\n"<<
-            "ps  - Print statistics\n"<<
-            "pr  - Print registers\n"<<
-            "pf  - Print Flags\n"<<
-            "pi  - Print general info\n"<<
-            "ppm - Print Program Memory\n"<<
-            "pdm - Print Data Memory\n"<<endl;
-            return 0;
-       }
-       else if(command == "pp")
-       {
-            //Print pipeline state
-            pipePrint();
-            return 0;
-       }
-       else if(command == "pdf")
-       {
-            //Print toggle flag status's
-            cout<<"Toggle flags status:\n"<<
-            "PRINT_PC = "<<PRINT_PC<<endl<<
-            "PRINT_FINAL_STATE = "<<PRINT_FINAL_STATE<<endl<<
-            "CONTROL_DEBUG = "<<CONTROL_DEBUG<<endl<<
-            "INTERRUPT_DEBUG = "<<INTERRUPT_DEBUG<<endl<<
-            "FLAG_DEBUG = "<<FLAG_DEBUG<<endl<<
-            "REGISTER_DEBUG = "<<REGISTER_DEBUG<<endl<<
-            "PIPEINE_DEBUG = "<<PIPE_DEBUG<<endl;
-            return 0;
-       }
-       else if(command == "ppc")
-       {
-            if(PRINT_PC == 1) { PRINT_PC = 0; cout<<"PC debug turned off"<<endl; return 0; }
-            if(PRINT_PC == 0) { PRINT_PC = 1; cout<<"PC debug turned on"<<endl; return 0; }
-       }
-       else if(command == "pfc")
-       {
-            if(PRINT_FINAL_STATE == 1) { PRINT_FINAL_STATE = 0; cout<<"Final state print turned off"<<endl; return 0; }
-            if(PRINT_FINAL_STATE == 0) { PRINT_FINAL_STATE = 1; cout<<"Final state print turned on"<<endl; return 0; }
-       }
-       else if(command == "pcd")
-       {
-            if(CONTROL_DEBUG == 1) { CONTROL_DEBUG = 0; cout<<"Control debug turned off"<<endl; return 0; }
-            if(CONTROL_DEBUG == 0) { CONTROL_DEBUG = 1; cout<<"Control debug turned on"<<endl; return 0; }
-       }
-       else if(command == "pid")
-       {
-            if(INTERRUPT_DEBUG == 1) { INTERRUPT_DEBUG = 0; cout<<"Interrupt debug turned off"<<endl; return 0; }
-            if(INTERRUPT_DEBUG == 0) { INTERRUPT_DEBUG = 1; cout<<"Interrupt debug turned on"<<endl; return 0; }
-       }
-       else if(command == "pfd")
-       {
-            if(FLAG_DEBUG == 1) { FLAG_DEBUG = 0; cout<<"Flag debug turned off"<<endl; return 0; }
-            if(FLAG_DEBUG == 0) { FLAG_DEBUG = 1; cout<<"Flag debug turned on"<<endl; return 0; }
-       }
-       else if(command == "prd")
-       {
-            if(REGISTER_DEBUG == 1) { REGISTER_DEBUG = 0; cout<<"Register debug turned off"<<endl; return 0; }
-            if(REGISTER_DEBUG == 0) { REGISTER_DEBUG = 1; cout<<"Register debug turned on"<<endl; return 0; }
-       }
-       else if(command == "ppm")
-       {
-            printProgramMemory();
-            return 0;
-       }
-       else if(command == "pd")
-       {
-            if(PIPE_DEBUG == 1) { PIPE_DEBUG = 0; cout<<"Pipe debug turned off"<<endl;  return 0; }
-            if(PIPE_DEBUG == 0) { PIPE_DEBUG = 1; cout<<"Pipe debug turned on"<<endl; return 0; }
-       }
-       else if(command == "pdm")
-       {
-            printDataMemory();
-            return 0;
-       }
-       else if(command == "pstage")
-       {
-            int tempinput;
-            cin>>tempinput;
-            Pipeline[tempinput-1].print();
-            return 0;
-       }
-       else if(command == "psq")
-       {
-            printStageQueue();
-            return 0;
-       }
-       else if(command == "pf")
-       {
-            //Print current flag values
-            printFlags();
-            return 0;
-       }
-       else if(command == "c")
-       {
-            //Run to end of program
-            RUN_TO_COMPLETION_ASKED = true;
-            command = "n";
-            RUNNING = 1;
 
-            return 0;
-       }
-       else if(command == "ps")
-       {
-            //Print statistics
-            Statistics.print();
-            return 0;
-       }
-       else if(command == "pr")
-       {
-            //Print register file
-            RF.print();
-            return 0;
-       }
-       else if(command == "ni")
-       {
-            cout<<"How many machine cycles would you like to clock? : ";
-            cin>>RUN_FOR;
-            return 0;
-                            
-       }
-       else if(command == "n")
-       {
-            if(PC == PMEND && !allStagesComplete())
-            {
-                 if(!RUN_TO_COMPLETION_ASKED)
-                 {      
-                     cout<<"************************** PROGRAM END REACHED **************************"<<endl;
-                     cout<<"Would you like to automatically finish the rest of execution? (y/n): ";
-                     string autofinish;
-                     cin>>autofinish;
-                     RUN_TO_COMPLETION_ASKED = true;
-                     if(autofinish.at(0) == 'Y' || autofinish.at(0) == 'y')
-                     {
-                                         
-                          finishPipelineExecution();
-                          RUNNING = 1;
-                          return 1;                    
-                     }           
-                 }
-                 finishPipelineExecution();         
-                 PC_STALLED = 1;
-                 return 1;
-            }
-            else if(PC == PMEND && allStagesComplete())
-            {
-                 cout<<"************************** PROGRAM END REACHED **************************"<<endl;
-                 PC_STALLED = 1;
-                 return 1;
-            }
-            
-            if(PIPE_DEBUG) cout<<"------------- MC "<<dec<<(int)Statistics.MC_CNT<<" -------------"<<endl;
-            clockPipeline();
-            
-            if(PC_STALLED != 1 && STOP_FILLING_PIPELINE != 1 && !PIPE_FULL || INTERRUPTED == 1)
-            {
-                  PC++;
-            }
-            registerInterrupts();
-            return 0;
-       }
-       else
-       {
-           cout<<"Invalid command"<<endl;
-           return 0;
-       }
-     
+    if(PC == PMEND)
+    {    
+         if(!allStagesComplete())
+         {  
+            PC_STALLED = 1;
+         }
+         else
+         {
+             cout<<"************************** PROGRAM END REACHED **************************"<<endl;
+             PC_STALLED = 1;
+             return 1;
+         }
+    }
+        
+    if(PIPE_DEBUG) cout<<"------------- MC "<<dec<<(int)Statistics.MC_CNT<<" -------------"<<endl;
+    clockPipeline();
+
+    if(PC_STALLED != 1 && STOP_FILLING_PIPELINE != 1 && !PIPE_FULL || INTERRUPTED == 1)
+    {
+          PC++;
+    }
+    
+    registerInterrupts();
+    int interruptnum = InterruptRegistered();
+    if(interruptnum != -1)
+    {
+         if(!allStagesComplete())
+         {
+             cout<<"Finishing current load before going into ISR"<<endl;
+             PC_STALLED = 1;
+             STOP_FILLING_PIPELINE = 1;
+         }
+         else
+         {
+             INTERRUPTED = 1;
+             if(!savedStateToServiceInterrupt)
+             {
+                  saveSystemState();
+                  cout<<"Going into interrupt #"<<interruptnum<<endl;
+                  PC = PM[0xFF - interruptnum];
+                  PC_STALLED = 0;
+                  STOP_FILLING_PIPELINE = 0;
+                  PM[0xFF - interruptnum] = 0;
+                  return 0;
+             }
+         }
+    }
+    
+    
+    return 0;
 }
 void Core::clockPipeline()
 {     
@@ -410,7 +258,7 @@ void Core::iF(Stage & stagenum)
                   break;
              case 0x02:
                   //LD/ST
-                  if((stagenum.operand1 & 0x01) == 0x00)
+                  if((stagenum.operand1 & 0x01) == 0x00 || (stagenum.operand1 & 0x01) == 0x01)
                   {
                       //Load into a register -- mark destination register
                       stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
@@ -425,8 +273,8 @@ void Core::iF(Stage & stagenum)
                       stagenum.reg1 = (int)((stagenum.operand1&0x0C)>>2);
                       stagenum.hasop2 = true;
                   }
-                  STOP_FILLING_PIPELINE = 1;
-                  PC_STALLED = 1;
+                  //STOP_FILLING_PIPELINE = 1;
+                  //PC_STALLED = 1;
                   break;
              case 0x04:
                   //SHIFT
@@ -510,7 +358,9 @@ void Core::DOF(Stage & stagenum)
                            break;
                       case 0x01:
                            //Store Immediate
-                           //No such thing
+                           if(!stagenum.hasop1) stagenum.data_in1 = stagenum.operand2;
+                           stagenum.data_in2 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
+                           stagenum.hasop1 = stagenum.hasop2 = true;
                            break;
                       case 0x02:
                            //Load Displacement
@@ -542,7 +392,7 @@ void Core::DOF(Stage & stagenum)
                            stagenum.hasop1 = stagenum.hasop2 = true;
                            break;
                   }
-                  stagenum.stalled = stallStageUntilAllOtherStagesFinished(stagenum.number);
+                  //stagenum.stalled = stallStageUntilAllOtherStagesFinished(stagenum.number);
                   break;
              case 0x04:
                   //SHIFT
@@ -628,7 +478,8 @@ void Core::execute(Stage & stagenum)
                        break;
                   case 0x01:
                        //Store Immediate
-                       //No such command
+                       stagenum.result1 = stagenum.data_in1;
+                       stagenum.result2 = stagenum.data_in2;
                        break;
                   case 0x02:
                        //Load Displacement
@@ -789,7 +640,8 @@ void Core::MWB(Stage & stagenum)
                        break;
                   case 0x01:
                        //Store Immediate
-                       //No such command
+                       printf("Storing %02X to PM[%02X] in stage %d\n",stagenum.result2,stagenum.result1,stagenum.number);
+                       PM[stagenum.result1] = stagenum.result2;
                        break;
                   case 0x02:
                        //Load Displacement
@@ -873,9 +725,7 @@ void Core::WB(Stage & stagenum)
                   case 0x01:
                        //Output
                        break;
-              }    
-              STOP_FILLING_PIPELINE = 0;
-              PC_STALLED = 0;                            
+              }                             
               break;
          case 0x04:
               //SHIFT
@@ -997,7 +847,7 @@ bool Core::checkDependence(Stage & stagenum)
                        break;
                   case 0x01:
                        //Store Immediate
-                       cout<<"Store immediate -- THIS IS NOT POSSIBLE"<<endl;
+                       return WAW(index, (stagenum.operand1 & 0x0C)>>2);
                        return false;
                        break;
                   case 0x02:
@@ -1129,7 +979,14 @@ bool Core::checkForDataForward(Stage & stagenum, int index, int regnum, int whic
      }
      return true; //Dependency still exists
 }
-
+int Core::InterruptRegistered()
+{
+     for(int i = 0;i<4;i++)
+     {
+             if(Interrupts[i] == 1) return i;
+     }
+     return -1;
+}
 void Core::forwardData(Stage & dest, Stage & origin, int regnum, int which_operand)
 {
      //Basically want to write the result for regnum of origin into temp_data{which_operand} of dest
@@ -1289,11 +1146,13 @@ void Core::finishPipelineExecution()
      //Finish executing stages we're waiting on
      if(PIPE_DEBUG && !PIPE_STALLED) cout<<"******************** Finishing Pipeline Execution *********************"<<endl;
      if(PIPE_DEBUG && PIPE_STALLED) cout<< "******************** PIPE STALLED -- Finishing Execution ****************"<<endl;
-     while(!allStagesComplete())
+     if(PIPE_DEBUG) cout<<"------------- MC "<<Statistics.MC_CNT<<" -------------"<<endl;
+         clockPipeline();
+     /*while(!allStagesComplete())
      {              
          if(PIPE_DEBUG) cout<<"------------- MC "<<Statistics.MC_CNT<<" -------------"<<endl;
          clockPipeline();
-     }
+     }*/
 }     
 
 void Core::saveSystemState()
@@ -1383,26 +1242,30 @@ void Core::registerInterrupts()
      if(PM[0xFF] != 0x00)
      {
          //1st priority
-         serviceInterrupt(PM[0xFF], 1);
-         PM[0xFF] = 0x00;
+         Interrupts[0] = 1;
+         //serviceInterrupt(PM[0xFF], 1);
+         //PM[0xFF] = 0x00;
      }
      if(PM[0xFE] != 0x00)
      {
+         Interrupts[1] = 1;
          //2nd priority
-         serviceInterrupt(PM[0xFE], 2);
-         PM[0xFE] = 0x00;
+         //serviceInterrupt(PM[0xFE], 2);
+         //PM[0xFE] = 0x00;
      }
      if(PM[0xFD] != 0x00)
      {
+         Interrupts[2] = 1;
          //3rd priority
-         serviceInterrupt(PM[0xFD], 3);
-         PM[0xFD] = 0x00;
+         //serviceInterrupt(PM[0xFD], 3);
+         //PM[0xFD] = 0x00;
      }
      if(PM[0xFC] != 0x00)
      {
+         Interrupts[3] = 1;
          //4th priority
-         serviceInterrupt(PM[0xFC], 4);
-         PM[0xFC] = 0x00;
+         //serviceInterrupt(PM[0xFC], 4);
+         //PM[0xFC] = 0x00;
      }
 }
 

@@ -42,6 +42,7 @@ Assembler::~Assembler(){}
 void Assembler::Assemble(string input_file, string output_file)
 {
      //printInstructionTable();
+     if(ASSEMBLER_DEBUG) {cout<<"Assembling "<<input_file<<" into "<<output_file<<endl;}
      ifstream input(input_file.c_str());
      clearOutputFile(output_file);
      string line;
@@ -225,6 +226,11 @@ void Assembler::createInstructionWords()
                     //ST Displacement
                     iw2 = (registerNumber(operand2)<<6) | (strtol(operand3.c_str(),NULL,16) & 0x3F);
                }
+               if((opcode[0] & 0xFF) == 0x21)
+               {
+                    //ST Immediate -- this translates to writing to program memory
+                    iw2 = (strtol(operand2.c_str(),NULL,16)&0xFF);
+               }
                break;
           case 0x30: //IN/OUT
                  iw1 = (opcode[0] & 0xFF) | (registerNumber(operand1)<<2);
@@ -247,7 +253,8 @@ void Assembler::createInstructionWords()
                          }
                          else
                          {
-                             printError("ILLEGAL JMP/BR/CALL INSTRUCTION",linenumber);
+                             //must be a direct address, not a label
+                             iw2 = strtol(operand1.c_str(),NULL,16);
                          }
                      }
                      else

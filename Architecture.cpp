@@ -17,26 +17,27 @@ int PCoreInUse[4] = {0,0,0,0};
 int main(int argc, char * argv[])
 {
 
-    cout<<"Assembled Successfully -- type ppm to view program memory"<<endl;
     Assembler p_asm = Assembler("opcodes"); 
     Assembler s_asm = Assembler("opcodes");
     p_asm.Assemble("Assembly/procnode.asm","PNODE_MC");
-    s_asm.Assemble("Assembly/supernode.asm","SNODE_MC");
+    s_asm.Assemble("Assembly/interrupttest.asm","SNODE_MC");
     
-    Core SP = Core("SNODE_MC","sp_rfile",s_asm.TISRA, s_asm.RISRA);
-    Core P0 = Core("PNODE_MC","pn0_rfile",p_asm.TISRA, p_asm.RISRA);
-    Core P1 = Core("PNODE_MC","pn1_rfile",p_asm.TISRA, p_asm.RISRA);
-    Core P2 = Core("PNODE_MC","pn2_rfile",p_asm.TISRA, p_asm.RISRA);
-    Core P3 = Core("PNODE_MC","pn3_rfile",p_asm.TISRA, p_asm.RISRA);
-    CommLink SPP0 = CommLink(SP,P0,0x04,0x00,0x09,0x05,0x0A,0x0B);
+    cout<<"\nAssembled Successfully -- type ppm to view program memory"<<endl;
+    
+    Core *SP = new Core("SNODE_MC","sp_rfile",s_asm.TISRA, s_asm.RISRA);
+    Core *P0 = new Core("PNODE_MC","pn0_rfile",p_asm.TISRA, p_asm.RISRA);
+    Core *P1 = new Core("PNODE_MC","pn1_rfile",p_asm.TISRA, p_asm.RISRA);
+    Core *P2 = new Core("PNODE_MC","pn2_rfile",p_asm.TISRA, p_asm.RISRA);
+    Core *P3 = new Core("PNODE_MC","pn3_rfile",p_asm.TISRA, p_asm.RISRA);
+    CommLink SPP0(SP,P0,0x04,0x00,0x09,0x05,0x0A,0x0B);
     
     string command;
     cout<<"Welcome to HCPU -- type help or ? for a command listing"<<endl;
-    setDebug(SP,true);
-    setDebug(P0,false);
-    setDebug(P1,false);
-    setDebug(P2,false);
-    setDebug(P3,false);
+    setDebug(*SP,true);
+    setDebug(*P0,false);
+    setDebug(*P1,false);
+    setDebug(*P2,false);
+    setDebug(*P3,false);
     int stop;
     int running = 0;
     while(stop != 1)
@@ -51,13 +52,39 @@ int main(int argc, char * argv[])
              running = 1;
              command = "n";
          }
-         stop = SP.clockCore(command);
+         if(command == "q")
+         {
+             exit(0);
+         }
+         if(command == "ppm")
+         {
+              SP->Core::printProgramMemory();
+         }
+         else if(command == "pstage")
+         {
+            int tempinput;
+            cin>>tempinput;
+            SP->Pipeline[tempinput-1].print();
+         }
+         stop = SP->clockCore();
+         SPP0.communicate();
+    }
+    cout<<"BREAK"<<endl;
+    while(command != "q")
+    {
+         cout<<"$ ";
+         cin>>command;
+         if(command == "n")
+         {
+              setDebug(*SP, false);
+              setDebug(*P0, true);
+         }
+         P0->clockCore();
     }
     system("pause");
       
     return 0;
 }
-
 void setDebug(Core& c, bool debug)
 {
     c.PIPE_DEBUG = debug;

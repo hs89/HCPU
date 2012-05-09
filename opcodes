@@ -8,6 +8,8 @@ LDI
 20
 ST
 23
+STI
+21
 IN
 30
 OUT

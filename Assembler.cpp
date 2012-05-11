@@ -229,7 +229,7 @@ void Assembler::createInstructionWords()
                if((opcode[0] & 0xFF) == 0x21)
                {
                     //ST Immediate -- this translates to writing to program memory
-                    iw2 = (strtol(operand2.c_str(),NULL,16)&0xFF);
+                    iw2 = (registerNumber(operand2)<<6) | (strtol(operand3.c_str(),NULL,16) & 0x3F);
                }
                break;
           case 0x30: //IN/OUT
@@ -246,15 +246,24 @@ void Assembler::createInstructionWords()
           case 0x50: //JMP/BR/CALL
                      if(operand1.size() != 0)
                      {
+                         iw1 = (opcode[0] & 0xFF);
                          if(operand1.at(0) == ':' && operand1.size() != 0)
                          {
-                             iw1 = (opcode[0] & 0xFF);
                              iw2 = ':'; //this corresponds to 0x3A which is a code that will never occur
                          }
                          else
                          {
-                             //must be a direct address, not a label
-                             iw2 = strtol(operand1.c_str(),NULL,16);
+                             if((opcode[0] & 0xFF) != 0x55)
+                             {
+                                 //must be a direct address, not a label
+                                 iw2 = strtol(operand1.c_str(),NULL,16);
+                             }
+                             else
+                             {
+                                 //jump to address held in register
+                                 iw2 = 0x00;
+                                 iw2 |= (registerNumber(operand1.c_str())<<6);
+                             }
                          }
                      }
                      else

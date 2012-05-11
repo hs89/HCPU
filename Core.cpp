@@ -63,6 +63,10 @@ Core::Core(string mc_file, string rfile, unsigned char TISRA, unsigned char RISR
     Interrupts[2] = 0; Interrupts[3] = 0;
     savedStateToServiceInterrupt = false;
     
+    for(int i = 0;i<256;i++)
+    {
+            DM[i] = 0x00;
+    }
     //printProgramMemory();
     //printCyclesPerInstruction(); //Prints cycles per instruction for each instruction
     //testRegisters(); //Tests the Register File Class   
@@ -76,7 +80,7 @@ Core::Core()
 
 int Core::clockCore()
 {
-
+    PIPE_FULL = pipelineFull();
     if(PC == PMEND)
     {    
          if(!allStagesComplete())
@@ -94,7 +98,7 @@ int Core::clockCore()
     if(PIPE_DEBUG) cout<<"------------- MC "<<dec<<(int)Statistics.MC_CNT<<" -------------"<<endl;
     clockPipeline();
 
-    if(PC_STALLED != 1 && STOP_FILLING_PIPELINE != 1 && !PIPE_FULL || INTERRUPTED == 1)
+    if((PC_STALLED != 1 && STOP_FILLING_PIPELINE != 1 && !PIPE_FULL) || (INTERRUPTED == 1 && instructionClocked == 1 && !PIPE_FULL && PC_STALLED != 1 && STOP_FILLING_PIPELINE != 1))
     {
           PC++;
     }
@@ -390,7 +394,7 @@ void Core::DOF(Stage & stagenum)
                       case 0x01:
                            //Output
                            if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
-                           //TODO: Come back and fix this -- this is a workaround because the stage doesn't stall properly
+                           
                            stagenum.hasop1 = stagenum.hasop2 = true;
                            break;
                   }
@@ -536,14 +540,15 @@ void Core::execute(Stage & stagenum)
               break;
          case 0x05:
               //JMP/BRANCH
-              if(stagenum.operand1 & 0x0F != 0x05)
+              if((stagenum.operand1) != 0x05)
               {
                    stagenum.result1 = stagenum.data_in1;
               }
               else
               {
                   //we're trying to jump to a value held in a register
-                  stagenum.result1 = RF.getRegister((stagenum.result1&0xC0>>6));
+                  stagenum.result1 = RF.getRegister((stagenum.data_in1>>6));
+                  //printf("Got new PC from register: %02X value = %02X",(stagenum.data_in1>>6),stagenum.result1);
               }
               break;
          case 0x06:
@@ -650,8 +655,8 @@ void Core::MWB(Stage & stagenum)
                        break;
                   case 0x01:
                        //Store Immediate
-                       PM[stagenum.result1] = stagenum.result2;
-                       if(RW_DEBUG) printf("Storing %02X to PM[%02X] in stage %d\n",stagenum.result2,stagenum.result1,stagenum.number);
+                       PM[stagenum.result2] = stagenum.result1;
+                       if(RW_DEBUG) printf("Stored %02X to PM[%02X] in stage %d\n",stagenum.result1,stagenum.result2,stagenum.number);
                        break;
                   case 0x02:
                        //Load Displacement
@@ -674,7 +679,7 @@ void Core::MWB(Stage & stagenum)
                   case 0x01:
                        //Output
                        IO[stagenum.operand2] = stagenum.result1;
-                       if(RW_DEBUG) printf("Wrote %02X to IO[%02X]\n",stagenum.result1,stagenum.operand2);
+                       if(RW_DEBUG) printf("Wrote %02X to IO[%02X] in stage %d\n",stagenum.result1,stagenum.operand2,stagenum.number);
                        wroteToIO = true;
                        IOADDR = stagenum.operand2;
                        break;
@@ -763,7 +768,7 @@ void Core::WB(Stage & stagenum)
                        break;
                   case 0x05:
                        //unconditional jump to a value held in a register (value is in stagenum.result1)
-                       PC = (char)((int)stagenum.result1-1));
+                       PC = (char)((int)stagenum.result1-1);
                        break;
                   case 0x08:
                        //BR if C = 1
@@ -787,7 +792,7 @@ void Core::WB(Stage & stagenum)
                        }
                        saveSystemState();
                        PC = (char)((int)stagenum.result1-1);
-                       RF.resetRegisters();
+                       //RF.resetRegisters(); commenting this allows me to pass registers into subroutines indirectly
                        break; 
               }
               STOP_FILLING_PIPELINE = 0; // Re-enable filling of the pipeline now that we have written back the updated PC
@@ -808,7 +813,7 @@ void Core::WB(Stage & stagenum)
               STOP_FILLING_PIPELINE = 0;
               PC_STALLED = 0;
               INTERRUPTED = 0;
-              PC--;
+              //PC--;
               resetFlags();
               break;
          case 0x07:
@@ -900,6 +905,8 @@ bool Core::checkDependence(Stage & stagenum)
                        //In the case of output, make sure we aren't trying to compute the register value to output
                        dep_on_op1 = determineIfDependent(index, (stagenum.operand1&0x0C)>>2);
                        if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+                       //we also need to see if there are other out commands  prior.. need to keep output in order
+                       if(checkForPriorOutput(index)) return true;
                        break;
               }                                
               break;
@@ -967,7 +974,33 @@ bool Core::WAW(int index, int regnum)
      }
      return false;
 }
-
+int Core::getDFWDstatenum(Stage stagenum)
+{
+    //printf("OPCODE = %02X",stagenum.opcode);
+    switch(stagenum.opcode)
+    {
+         case 0x00: //CPY
+         case 0x01: //SWAP
+         case 0x02: //LD/ST
+         case 0x04: //SHIFT
+         case 0x05: //JMP
+         case 0x06: //RET
+         case 0x07: //SIMD
+         case 0x08: //ADD
+         case 0x09: //SUB
+         case 0x0A: //AND
+         case 0x0B: //CEQ
+         case 0x0C: //CLT
+         case 0x0D: //MUL
+         case 0x0E: //DIV
+         case 0x0F: //NOT
+              return 3;
+              break;
+         case 0x03:
+              return 5; //need to be past WB to fwd
+              break;
+    }
+}
 bool Core::checkForDataForward(Stage & stagenum, int index, int regnum, int which_operand)
 {
      //The return value should be false if data was forwarded -- represents no data dependency
@@ -982,7 +1015,7 @@ bool Core::checkForDataForward(Stage & stagenum, int index, int regnum, int whic
              if(Pipeline[StagesExecuting[i]-1].reg1 == regnum ||
                 Pipeline[StagesExecuting[i]-1].reg2 == regnum  )
              {
-                 if(Pipeline[StagesExecuting[i]-1].state > 3)
+                 if(Pipeline[StagesExecuting[i]-1].state > getDFWDstatenum(Pipeline[StagesExecuting[i]-1]))
                  {
                       
                           //cout<<"Waiting for stage "<<StagesExecuting[i]<<" to write back to "<<regnum<<endl;
@@ -1124,7 +1157,17 @@ void Core::resetStage(Stage & snum)
       StagesExecuting.erase(StagesExecuting.begin()+tempnumber);
       snum.reset();
 }
-
+bool Core::checkForPriorOutput(int index)
+{
+     for(int i = index+1; i<StagesExecuting.size();i++)
+     {
+             //printf("Looking at stage %d for output opcode.. opcode = %02X\n",StagesExecuting[i],Pipeline[StagesExecuting[i]-1].opcode);
+             if((Pipeline[StagesExecuting[i]-1].opcode) == 0x03) {
+                  return true;
+             }
+     }
+     return false;
+}
 int Core::findStageInQueue(int stagenum)
 {
     for(int i = 0; i<StagesExecuting.size(); i++)

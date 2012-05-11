@@ -77,6 +77,8 @@ class Core
          
          /* FUNCTION PROTOTYPE DEFS */
         int Core::InterruptRegistered();
+        bool Core::checkForPriorOutput(int);
+        int Core::getDFWDstatenum(Stage);
         void Core::testRegisters(); //Prototype for register class test -- debug code
         void Core::printState(); //Debug code
         void Core::loadCyclesPerInstruction(string); //Prototype to initialize the Cycles array

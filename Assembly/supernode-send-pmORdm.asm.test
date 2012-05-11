@@ -1,0 +1,33 @@
+:main;
+CALL :initDMTX;
+LDI R0,05; send P0 size of code
+OUT R0,00;
+LDI R0,A0; send P0 start addr
+OUT R0,00; 
+LDI R0,20; 
+LDI R1,F0;
+OUT R0,00; LDI R0,F0
+OUT R1,00;
+LDI R0,24;
+LDI R1,F1;
+OUT R0,00; LDI R1,F1
+OUT R1,00;
+CALL :doneTX;
+JMP :wait;
+:wait;
+JMP :wait;
+:TXISR;
+:RXISR;
+:initPMTX;
+LDI R0,00;
+OUT R0,04;
+RET;
+:initDMTX;
+LDI R0,01;
+OUT R0,04;
+RET;
+:doneTX;
+LDI R0,01;
+OUT R0,0A;
+RET;
+END;

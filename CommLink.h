@@ -13,8 +13,10 @@ class CommLink
              int TXSTATUS;
              int TXDONE;
              string m,s;
-             CommLink(string,string,Core*,Core*,unsigned char,unsigned char,unsigned char, unsigned char, unsigned char, unsigned char);
+             CommLink(string,string,Core*,Core*,unsigned char,unsigned char,unsigned char);
              void communicate();
+             void printFIFO();
+             void print();
              
       private:
               Core *master,*slave;

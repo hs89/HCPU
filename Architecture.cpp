@@ -25,11 +25,12 @@ vector <CommLink> comms;
 
 int main(int argc, char * argv[])
 {
-
+    Assembler genmc = Assembler("opcodes");
+    genmc.Assemble("Assembly/process4elements-attempt2.asm", "MachineCode/PROC4ELEMENTS-attempt2.MC");
     Assembler p_asm = Assembler("opcodes"); 
     Assembler s_asm = Assembler("opcodes");
     p_asm.Assemble("Assembly/procnode.asm","PNODE_MC");
-    s_asm.Assemble("Assembly/supernode.asm","SNODE_MC");
+    s_asm.Assemble("Assembly/supernode-onlyprog.asm","SNODE_MC");
     
     cout<<"\nAssembled Successfully -- type ppm to view program memory"<<endl;
     
@@ -47,8 +48,16 @@ int main(int argc, char * argv[])
     
     selected = 0;
     
-    CommLink SPP0("SP","P0",SP,P0,0x04,0x00,0x09,0x05,0x0A,0x0B);
+    //Commlinks are established by:
+    //NAME,NAME,OBJ,OBJ, TX status port, TX data port, TX done port
+    CommLink SPP0("SP","P0",SP,P0,0x04,0x00,0x0A);
+    CommLink SPP1("SP","P1",SP,P1,0x04,0x01,0x0B);
+    CommLink SPP2("SP","P2",SP,P2,0x04,0x02,0x0C);
+    CommLink SPP3("SP","P3",SP,P3,0x04,0x03,0x0D);
     comms.push_back(SPP0);
+    comms.push_back(SPP1);
+    comms.push_back(SPP2);
+    comms.push_back(SPP3);
     
     string command;
     cout<<"Welcome to HCPU -- type help or ? for a command listing"<<endl;
@@ -90,6 +99,11 @@ int main(int argc, char * argv[])
               command = "n";
               running = true;;
          }
+         if(command == "psq")
+         {
+              cores[selected]->printStageQueue();
+              continue;
+         }
          else if(command == "pstage")
          {
             int tempinput;
@@ -127,7 +141,11 @@ int main(int argc, char * argv[])
 bool clockSystem()
 {
     int one = cores[0]->clockCore(); //Clock SP
-    comms[0].communicate(); // SP->P0 comms
+    for(int i = 0;i<4;i++)
+    {
+        comms[i].communicate();
+    }
+    if(cores[0]->wroteToIO) cores[0]->wroteToIO = false;
     int two = cores[1]->clockCore(); //Clock P0
     int three = cores[2]->clockCore(); //Clock P1
     int four = cores[3]->clockCore(); //Clock P2

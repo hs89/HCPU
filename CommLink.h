@@ -12,7 +12,8 @@ class CommLink
              deque <unsigned char> TXFIFO;
              int TXSTATUS;
              int TXDONE;
-             CommLink(Core*,Core*,unsigned char,unsigned char,unsigned char, unsigned char, unsigned char, unsigned char);
+             string m,s;
+             CommLink(string,string,Core*,Core*,unsigned char,unsigned char,unsigned char, unsigned char, unsigned char, unsigned char);
              void communicate();
              
       private:

@@ -21,6 +21,7 @@ class Core
         bool FLAG_DEBUG;
         bool REGISTER_DEBUG;
         bool DEBUG_DFWD;
+        bool RW_DEBUG;
         /*    END DEBUG FLAG DEFS    */
         
         /*  Files to be loaded:  */

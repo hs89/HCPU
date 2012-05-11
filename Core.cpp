@@ -20,6 +20,7 @@ Core::Core(string mc_file, string rfile, unsigned char TISRA, unsigned char RISR
     FLAG_DEBUG = true;
     REGISTER_DEBUG = true;
     DEBUG_DFWD = true;
+    RW_DEBUG = true;
     /*    END DEBUG FLAG DEFS    */
     
     PC = 0x00; // Program Memory Counter
@@ -84,7 +85,7 @@ int Core::clockCore()
          }
          else
          {
-             cout<<"************************** PROGRAM END REACHED **************************"<<endl;
+             if(PIPE_DEBUG) cout<<"************************** PROGRAM END REACHED **************************"<<endl;
              PC_STALLED = 1;
              return 1;
          }
@@ -104,7 +105,7 @@ int Core::clockCore()
     {
          if(!allStagesComplete())
          {
-             cout<<"Finishing current load before going into ISR"<<endl;
+             if(INTERRUPT_DEBUG) cout<<"Finishing current load before going into ISR"<<endl;
              PC_STALLED = 1;
              STOP_FILLING_PIPELINE = 1;
          }
@@ -114,7 +115,7 @@ int Core::clockCore()
              if(!savedStateToServiceInterrupt)
              {
                   saveSystemState();
-                  cout<<"Going into interrupt #"<<interruptnum<<endl;
+                  if(INTERRUPT_DEBUG) cout<<"Going into interrupt #"<<interruptnum<<endl;
                   PC = PM[0xFF - interruptnum];
                   PC_STALLED = 0;
                   STOP_FILLING_PIPELINE = 0;
@@ -641,7 +642,7 @@ void Core::MWB(Stage & stagenum)
                        break;
                   case 0x01:
                        //Store Immediate
-                       printf("Storing %02X to PM[%02X] in stage %d\n",stagenum.result2,stagenum.result1,stagenum.number);
+                       if(RW_DEBUG) printf("Storing %02X to PM[%02X] in stage %d\n",stagenum.result2,stagenum.result1,stagenum.number);
                        PM[stagenum.result1] = stagenum.result2;
                        break;
                   case 0x02:
@@ -650,7 +651,7 @@ void Core::MWB(Stage & stagenum)
                   case 0x03:
                        //Store Displacement
                        DM[stagenum.result2] = stagenum.result1;
-                       printf("Stored %02X to DM[%02X] in stage %d\n",stagenum.result1,stagenum.result2,stagenum.number);
+                       if(RW_DEBUG) printf("Stored %02X to DM[%02X] in stage %d\n",stagenum.result1,stagenum.result2,stagenum.number);
                        break;
               }
               break;
@@ -665,7 +666,7 @@ void Core::MWB(Stage & stagenum)
                   case 0x01:
                        //Output
                        IO[stagenum.operand2] = stagenum.result1;
-                       printf("Wrote %02X to IO[%02X]\n",stagenum.result1,stagenum.operand2);
+                       if(RW_DEBUG) printf("Wrote %02X to IO[%02X]\n",stagenum.result1,stagenum.operand2);
                        wroteToIO = true;
                        IOADDR = stagenum.operand2;
                        break;
@@ -719,7 +720,7 @@ void Core::WB(Stage & stagenum)
                   case 0x00:
                        //Input
                        RF.setRegister((stagenum.operand1 & 0x0C)>>2, stagenum.result1);
-                       printf("Read %02X from IO[%02X]\n",RF.getRegister((stagenum.operand1&0x0C)>>2),stagenum.operand2);
+                       if(RW_DEBUG) printf("Read %02X from IO[%02X]\n",RF.getRegister((stagenum.operand1&0x0C)>>2),stagenum.operand2);
                        readFromIO = true;
                        IOADDR = stagenum.operand2;
                        break;
@@ -918,7 +919,7 @@ bool Core::checkDependence(Stage & stagenum)
       //At this point we know whether there is a dependency with operand1, operand2, or both
       //We also know the register number for each of them
       //Now we should go through and figure out if any data forwarding is possible
-      cout<<"Stagenum "<<stagenum.number<<" dependent on op1 = "<<dep_on_op1<<" and op2 = "<<dep_on_op2<<endl;
+      if(DEBUG_DFWD) cout<<"Stagenum "<<stagenum.number<<" dependent on op1 = "<<dep_on_op1<<" and op2 = "<<dep_on_op2<<endl;
       if(dep_on_op1)
       {
           dep_on_op1 = checkForDataForward(stagenum, index, op1regnum, 1);
@@ -943,7 +944,7 @@ bool Core::WAW(int index, int regnum)
                 Pipeline[StagesExecuting[i]-1].reg2 == regnum  )
                 {
                      //A WAW hazard exists
-                     cout<<"Stage "<<Pipeline[StagesExecuting[index]-1].number<<" has a WAW hazard -- stalling!"<<endl;
+                     if(DEBUG_DFWD) cout<<"Stage "<<Pipeline[StagesExecuting[index]-1].number<<" has a WAW hazard -- stalling!"<<endl;
                      return true;
                 }
      }
@@ -1116,7 +1117,7 @@ int Core::findStageInQueue(int stagenum)
 }
 void Core::printStageQueue()
 {
-     cout<<"Stages Executing: "<<endl;
+     if(PIPE_DEBUG) cout<<"Stages Executing: "<<endl;
      for(int i = 0;i<StagesExecuting.size(); i++)
      {
              cout<<StagesExecuting[i]<<endl;

@@ -17,6 +17,7 @@ void setDebug(Core*,bool);
 void selectCore();
 int PCoreInUse[4] = {0,0,0,0};
 int selected = 0;
+int RUN_FOR = 0;
 
 vector <Core*> cores;
 vector <CommLink> comms;
@@ -31,11 +32,11 @@ int main(int argc, char * argv[])
     
     cout<<"\nAssembled Successfully -- type ppm to view program memory"<<endl;
     
-    Core *SP = new Core("SNODE_MC","sp_rfile",s_asm.TISRA, s_asm.RISRA);
-    Core *P0 = new Core("PNODE_MC","pn0_rfile",p_asm.TISRA, p_asm.RISRA);
-    Core *P1 = new Core("PNODE_MC","pn1_rfile",p_asm.TISRA, p_asm.RISRA);
-    Core *P2 = new Core("PNODE_MC","pn2_rfile",p_asm.TISRA, p_asm.RISRA);
-    Core *P3 = new Core("PNODE_MC","pn3_rfile",p_asm.TISRA, p_asm.RISRA);
+    Core *SP = new Core("SNODE_MC", "sp_rfile",  s_asm.TISRA, s_asm.RISRA);
+    Core *P0 = new Core("PNODE_MC", "pn0_rfile", p_asm.TISRA, p_asm.RISRA);
+    Core *P1 = new Core("PNODE_MC", "pn1_rfile", p_asm.TISRA, p_asm.RISRA);
+    Core *P2 = new Core("PNODE_MC", "pn2_rfile", p_asm.TISRA, p_asm.RISRA);
+    Core *P3 = new Core("PNODE_MC", "pn3_rfile", p_asm.TISRA, p_asm.RISRA);
     
     cores.push_back(SP);
     cores.push_back(P0);
@@ -50,11 +51,7 @@ int main(int argc, char * argv[])
     
     string command;
     cout<<"Welcome to HCPU -- type help or ? for a command listing"<<endl;
-    setDebug(SP,true);
-    setDebug(P0,false);
-    setDebug(P1,false);
-    setDebug(P2,false);
-    setDebug(P3,false);
+
     int stop;
     int running = 0;
     while(stop != 1)
@@ -80,12 +77,28 @@ int main(int argc, char * argv[])
               cores[selected]->printProgramMemory();
               continue;
          }
+         if(command == "pdm")
+         {
+              cores[selected]->printDataMemory();
+              continue;
+         }
+         if(command == "ni")
+         {
+              cin>>RUN_FOR;
+              command = "n";
+              running = true;;
+         }
          else if(command == "pstage")
          {
             int tempinput;
             cin>>tempinput;
-            SP->Pipeline[tempinput-1].print();
+            cores[selected]->Pipeline[tempinput-1].print();
             continue;
+         }
+         else if(command == "pp")
+         {
+              cores[selected]->pipePrint();
+              continue;
          }
          else if(command == "s")
          {
@@ -94,17 +107,27 @@ int main(int argc, char * argv[])
               selected = mapProcNameToNum(tempinput);
               continue;
          }
-         stop = clockSystem();
+         else if(command == "n")
+         {
+             stop = clockSystem();
+             
+             if(RUN_FOR == 0) running = false;
+             else RUN_FOR--;
+         }
+         else
+         {
+             cout<<"Invalid command!"<<endl;
+         }
     }
     system("pause"); 
     return 0;
 }
 bool clockSystem()
 {
-    int one = cores[0]->clockCore();
-    comms[0].communicate();
-    int two = cores[1]->clockCore();
-    
+    int one = cores[0]->clockCore(); //Clock SP
+    comms[0].communicate(); // SP->P0 comms
+    int two = cores[1]->clockCore(); //Clock P0
+    return one && two;
 }
 void selectCore()
 {
@@ -130,11 +153,11 @@ int mapProcNameToNum(string name)
 }
 string mapProcNumToName()
 {
-       if(selected == 0) return "SP";
-       if(selected == 1) return "P0";
-       if(selected == 2) return "P1";
-       if(selected == 3) return "P2";
-       if(selected == 4) return "P3";
+   if(selected == 0) return "SP";
+   if(selected == 1) return "P0";
+   if(selected == 2) return "P1";
+   if(selected == 3) return "P2";
+   if(selected == 4) return "P3";
 }
 void setDebug(Core * c, bool debug)
 {

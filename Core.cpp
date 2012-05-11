@@ -360,8 +360,8 @@ void Core::DOF(Stage & stagenum)
                            break;
                       case 0x01:
                            //Store Immediate
-                           if(!stagenum.hasop1) stagenum.data_in1 = stagenum.operand2;
-                           stagenum.data_in2 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
+                           if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister((stagenum.operand1 & 0x0C)>>2);
+                           if(!stagenum.hasop2) stagenum.data_in2 = RF.getRegister((stagenum.operand2 & 0xC0)>>6);
                            stagenum.hasop1 = stagenum.hasop2 = true;
                            break;
                       case 0x02:
@@ -480,8 +480,8 @@ void Core::execute(Stage & stagenum)
                        break;
                   case 0x01:
                        //Store Immediate
-                       stagenum.result1 = stagenum.data_in1;
-                       stagenum.result2 = stagenum.data_in2;
+                       stagenum.result1 = stagenum.data_in1; // This is the value we will store
+                       stagenum.result2 = stagenum.data_in2 + (stagenum.operand2 & 0x3F); //This is the location we will store to
                        break;
                   case 0x02:
                        //Load Displacement
@@ -536,7 +536,15 @@ void Core::execute(Stage & stagenum)
               break;
          case 0x05:
               //JMP/BRANCH
-              stagenum.result1 = stagenum.data_in1;
+              if(stagenum.operand1 & 0x0F != 0x05)
+              {
+                   stagenum.result1 = stagenum.data_in1;
+              }
+              else
+              {
+                  //we're trying to jump to a value held in a register
+                  stagenum.result1 = RF.getRegister((stagenum.result1&0xC0>>6));
+              }
               break;
          case 0x06:
               //RET/RETI
@@ -642,8 +650,8 @@ void Core::MWB(Stage & stagenum)
                        break;
                   case 0x01:
                        //Store Immediate
-                       if(RW_DEBUG) printf("Storing %02X to PM[%02X] in stage %d\n",stagenum.result2,stagenum.result1,stagenum.number);
                        PM[stagenum.result1] = stagenum.result2;
+                       if(RW_DEBUG) printf("Storing %02X to PM[%02X] in stage %d\n",stagenum.result2,stagenum.result1,stagenum.number);
                        break;
                   case 0x02:
                        //Load Displacement
@@ -753,6 +761,10 @@ void Core::WB(Stage & stagenum)
                        //BR if N = 1
                        if(N_FLAG == 1) PC = (char)((int)stagenum.result1-1);
                        break;
+                  case 0x05:
+                       //unconditional jump to a value held in a register (value is in stagenum.result1)
+                       PC = (char)((int)stagenum.result1-1));
+                       break;
                   case 0x08:
                        //BR if C = 1
                        if(C_FLAG == 1) PC = (char)((int)stagenum.result1-1);
@@ -851,8 +863,13 @@ bool Core::checkDependence(Stage & stagenum)
                        break;
                   case 0x01:
                        //Store Immediate
-                       return WAW(index, (stagenum.operand1 & 0x0C)>>2);
-                       return false;
+                       //return WAW(index, (stagenum.operand1 & 0x0C)>>2);
+                       //return false;
+                       dep_on_op1 = determineIfDependent(index, (stagenum.operand1 & 0x0C)>>2);
+                       //cout<<"Looking for dependence on "<<(int)((stagenum.operand2 & 0xC0)>>6)<<endl;
+                       dep_on_op2 = determineIfDependent(index, (stagenum.operand2 & 0xC0)>>6);
+                       if(dep_on_op1) op1regnum = ((stagenum.operand1&0x0C)>>2);
+                       if(dep_on_op2) op2regnum = ((stagenum.operand2&0xC0)>>6);
                        break;
                   case 0x02:
                        //Load Displacement

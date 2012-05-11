@@ -18,6 +18,7 @@ void selectCore();
 int PCoreInUse[4] = {0,0,0,0};
 int selected = 0;
 int RUN_FOR = 0;
+bool keep_running = false;
 
 vector <Core*> cores;
 vector <CommLink> comms;
@@ -66,6 +67,7 @@ int main(int argc, char * argv[])
          if(command == "c")
          {
              running = 1;
+             keep_running = true;
              command = "n";
          }
          if(command == "q")
@@ -111,7 +113,7 @@ int main(int argc, char * argv[])
          {
              stop = clockSystem();
              
-             if(RUN_FOR == 0) running = false;
+             if(RUN_FOR == 0 && !keep_running) running = false;
              else RUN_FOR--;
          }
          else
@@ -127,7 +129,10 @@ bool clockSystem()
     int one = cores[0]->clockCore(); //Clock SP
     comms[0].communicate(); // SP->P0 comms
     int two = cores[1]->clockCore(); //Clock P0
-    return one && two;
+    int three = cores[2]->clockCore(); //Clock P1
+    int four = cores[3]->clockCore(); //Clock P2
+    int five = cores[4]->clockCore(); //Clock P3
+    return one && two && three && four && five;
 }
 void selectCore()
 {

@@ -15,7 +15,6 @@ int mapProcNameToNum(string);
 string mapProcNumToName();
 void setDebug(Core*,bool);
 void selectCore();
-int PCoreInUse[4] = {0,0,0,0};
 int selected = 0;
 int RUN_FOR = 0;
 bool keep_running = false;
@@ -25,12 +24,12 @@ vector <CommLink> comms;
 
 int main(int argc, char * argv[])
 {
-    Assembler genmc = Assembler("opcodes");
-    genmc.Assemble("Assembly/process4elements-attempt2.asm", "MachineCode/PROC4ELEMENTS-attempt2.MC");
+    //Assembler genmc = Assembler("opcodes");
+    //genmc.Assemble("Assembly/process4elements-attempt2.asm", "MachineCode/PROC4ELEMENTS-attempt2.MC");
     Assembler p_asm = Assembler("opcodes"); 
     Assembler s_asm = Assembler("opcodes");
     p_asm.Assemble("Assembly/procnode.asm","PNODE_MC");
-    s_asm.Assemble("Assembly/supernode-onlyprog.asm","SNODE_MC");
+    s_asm.Assemble("Assembly/supernode-halfloop.asm","SNODE_MC");
     
     cout<<"\nAssembled Successfully -- type ppm to view program memory"<<endl;
     
@@ -73,12 +72,12 @@ int main(int argc, char * argv[])
              cout<<"$ ";
              cin>>command;
          }
-         if(command == "c")
+         /*if(command == "c")
          {
              running = 1;
              keep_running = true;
              command = "n";
-         }
+         }*/
          if(command == "q")
          {
              exit(0);

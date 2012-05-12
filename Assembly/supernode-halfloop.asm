@@ -19,29 +19,9 @@
     LDI R1,13; dec 19
     CALL :sendtoP1;
     CALL :doneTXP1;
-    CALL :initDMTX;
-    LDI R0,06;
-    LDI R1,A0;
-    LDI R2,11; dec 17
-    LDI R3,0D; dec 13
-    CALL :sendtoP2;
-    LDI R0,0B; dec 11
-    LDI R1,07; dec 7
-    CALL :sendtoP2;
-    CALL :doneTXP2;
-    CALL :initDMTX;
-    LDI R0,06;
-    LDI R1,A0;
-    LDI R2,05; dec 5
-    LDI R3,03; dec 3
-    CALL :sendtoP3;
-    LDI R0,02; dec 2
-    LDI R1,01; dec 1;
-    CALL :sendtoP3;    
-    CALL :doneTXP3;
     CALL :initPMTX;
     LDI R0,22;
-    LDI R1,50; starting address of code
+    LDI R1,70; starting address of code
     LDI R2,20; code starts at address 50
     LDI R3,00;
     CALL :sendtoall;
@@ -81,7 +61,7 @@
     LDI R3,51;
     CALL :sendtoall;
     LDI R0,50;
-    LDI R1,56; jump to loop code
+    LDI R1,76; jump to loop code
     LDI R2,00;
     LDI R3,00;
     CALL :sendtoall;

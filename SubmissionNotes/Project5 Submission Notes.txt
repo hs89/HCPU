@@ -1,0 +1,170 @@
+Holden Sandlar
+Advanced Computer Architecture
+0301-810 w/ Dorin Patru
+Multicore System
+
+The solutions for the book problems can be found in:
+"Docs/HW5.docx"
+
+Response to "Parallel Programmer Productivity" can be found:
+"Docs/ProgrammingPaperAnalysis.docx"
+
+Response to "A Plea for Lean Software" can be found:
+"Docs/PleaForLeanSoftwareAnalysis.docx"
+
+
+Multicore writeup:
+
+For a high level diagram of the communication protocol see:
+"Docs/comm-highlevel.jpg" (hand drawing)
+
+For a detailed diagram of IO port mappings see:
+"Docs/comm-map.jpg" (hand drawing)
+
+The first major task of this assignment was to break down the Architecture.cpp
+file which contained the core of my processor and turn it into its own "Core.h" and "Core.cpp" class.
+Once this was done, a new Architecture.cpp was created.
+
+New functionality added to processor to make communications possible:
+
+Store Immediate was implemented with the same scheme as store displacement except it stores to the core's
+program memory. The reason I went with the displacement implementation is that it allows my transmission
+from one processor to another to include a starting address to save whatever is being transmitted.
+
+A JMPR was also implemented using one of the unused jump codes. This instruction allows the processor
+to jump unconditionally to an address held in a register. This made it possible to transmit code which
+will jump to the correct location without embedding the address into the transmission. It also makes it possible
+to save the starting location of code into a data memory element and then load and jump to it when needed.
+
+
+Description of Communication Protocol:
+
+For this discussion assume supervisor processor (SP) is referred to as "master" and a processing node
+is referred to as "slave"
+
+Basically what I have done for my communications protocol is created a communications controller (CommLink.h, CommLink.cpp)
+which sits in between each master/slave pair. The structure is such that a CommLink can be declared from master->slave
+and from slave->master allowing bi-directional communciation.
+
+Within the CommLink are three things: A status register which indicates the type of transfer (program or data), a FIFO
+message buffer (of infinite size), and a "done" register.
+
+IO ports on both the master and slave are linked into the CommLink. The mapping can be seen most clearly by looking at:
+"Docs/comm-map.jpg" (hand drawing)
+
+When master wants to transmit something to slave the following sequence occurs:
+1) Master will write 0 or 1 to the status register indicating what "type" will be transmitted
+2) Master will start writing the IO connected to the FIFO. The FIFO will continue to grow with
+   every IO write but nothing will be transferred to the slave yet.
+   *The first byte written to the FIFO will be the size of the transmission - comm overhead (2 bytes {size,address})
+   *The second byte written to the FIFO will be the starting address for the slave to save the transmission
+3) Master will finish writing to FIFO and then will write a 1 to the IO port connected to the "done" register for that
+   specific slave communication link
+4) When the "done" register is written, the CommLink will generate an interrupt on the slave which points to the starting
+   address of the RX interrupt service routine on the slave.
+5) The RX ISR does the following:
+   Reads in the size of the code from the first byte of the FIFO
+   Checks the TX status register to determine whether to expect a program or data
+   If data is to be expected the DMRW (data memory read/write) subroutine is called
+   If program is to be expected the PMRW (program memory read/write) subroutine is called
+   
+   DMRW: This subroutine will read in data from the FIFO and write it to DM[starting address -> starting address + size]
+         Once completed, the ISR will be returned from and the main code of the slave will continue to run (description coming)
+   PMRW: This subroutine will read in data from the FIFO and write it to PM[starting address -> starting address + size]
+         Once completed, the ISR will be returned from and the main code of the slave will continue to run (description coming)
+
+As previously stated, this link can be established either from SP->P# or from P#->SP. This is how the communication works.
+
+Slave main code:
+The slave main code basically sits in a loop in which it checks a specific data memory address to see if a "flag" has been set.
+If the flag has been set it means that code was uploaded and proceeds to load the code starting address from another data memory
+element and then jumps to the starting location of the code (JMPR).
+
+Master main code:
+The master's main code pipes data and code out to each processing node and once completed will wait for data to come back through
+the same mechanism as previously described.
+
+
+Implementation:
+
+My implementation is working, however I am unable to fit all of my assembly->machine code into the supervisor's program memory
+There are many iterations of the assembly which are described below:
+
+"Assembly/procnode.asm" - Code which runs on all processing nodes. This code works and is well commented.
+"Assembly/supernode2.asm" - Code which contains the full multiply loop split across all processing nodes. This code is too large
+                            to fit in the memory of the supervisor processor. Also I should note that only communication in one
+                            direction has been included (master->slave) in this code. Code for communication in the other direction
+                            has actually not been included in any file because there is not enough room in the supervisor memory.
+"Assembly/supernode-onlydata.asm" - Pipes all data elements out to processing nodes. This code works and can fit in memory!
+"Assembly/supernode-onlyprog.asm" - Pipes all code out to processing nodes. This code works and can fit in memory!
+"Assembly/supernode-halfloop.asm" - Cut the data structure in half and only upload it to P0 and P1. This code works and can fit in
+                                    memory. (Info about verification later)
+
+There are more assembly files related to this project in the Assembly directory most of which were experimentation to attempt to
+lower the overall size of the machine code to be able to fit in the supervisor's memory.
+
+
+Verification:
+
+A significant portion of the simulator had to be reorganized to accomplish this project and as a result some "features" were lost.
+Because of the complexity of which code is running on what processor there is no command line support to pass in an assembly code
+file. In order to change the running program you must recompile the simulator.
+
+Some commands have been lost but others have been added. Most notably:
+
+"s <SP/P0/P1/P2/P3>" - switches the current debug options to the specified processor. Any subsequent commands will be issued on the
+                       specified processor.
+"ppm" - print program memory for the selected processor
+"pdm" - print data memory for the selected processor
+"pstage" - print in-depth details for a given pipeline stage for the selected processor
+"n" - clock the system (will clock all processors)
+"ni <number>" - clock the system <number> times.
+
+There are also frequent communication messages which will appear in the simulator which will provide specifics about what is occuring
+in the communications link between processors.
+
+To help you verify that my project is working I have compiled the simulator with the half-loop code running on the supervisor.
+This code will first upload data to P0 and P1. Then the loop code will be uploaded to all processors.
+Start the simulator and enter the following:
+
+"ni 500" - clock 500 cycles
+"s P0" - select P0 for debug
+"pdm" - note the data stored at A0-A5 (reason there are 6 values is because of the way the TX subroutine is written, note 2 values are the same)
+"s P1" - select P1 for debug
+"pdm" - note the data stored at A0-A5 (second set of 4 values from the specified prime numbers (from the end of the list))
+
+At this point the program has still not been uploaded
+"s SP" - select the super proc.
+"ni 623" - clock to machine cycle 1123 (where the interrupt from SP->P0 is fired)
+
+Now we know that P0 will be trying to pull down and save the program data
+"s P0" - select P0
+"ni 27" - clock to machine cycle 1150
+"n" - machine cycle 1151 a message will show that SP triggered an interrupt on P1 (code being sent)
+
+Also note the value of R0 (holds the amount of data left to read in)
+"ni 196" - clock to machine cycle 1350
+"ppm" - print program memory (note that starting at location 0x70 memory has been written)
+        also note that R0 is still != 0 -> still more code in the FIFO
+"ni 465" - clock to machine cycle 1815 (P0 has finished writing the code to its program memory)
+"ni 45" - clock to machine cycle 1860 (P0 has backed out of its ISR, realized code was uploaded, and started executing the code)
+
+At this point you could continue to check for valid program execution if you feel so inclined.
+
+"ni 1500" - clock another 1500 cycles
+"pdm" - Look at A0-A3 which now contain results from the MSB of the multiplication of 0x35 * top 4 elements
+
+We can also switch to P1 and look for results from multiplication
+"s P1"
+"pdm"
+
+Or look that program code was uploaded properly to the other processors (P1,P2,P3)
+"ppm" - code will start at location 0x70
+
+As stated earlier, there was not enough program memory space in the supervisor to include a recieve function for the data to be
+sent back to the supervisor from the slaves.
+
+That about wraps up this assignment. Given a smaller loop or the ability to preload data memory for the slaves I am sure that
+I could meet the desired computation specification.
+
+Enjoy!

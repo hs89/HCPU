@@ -87,7 +87,7 @@ void CacheController::read(CacheRequest& address)
              {
                  //miss
                  int replaceselect = getNotLastUsed(address.groupid,address.blockid);
-                 writeBlockToMemory(address.groupid, address.blockid, replaceselect, a);
+                 //writeBlockToMemory(address.groupid, address.blockid, replaceselect, a);
                  putBlockInCache(address.groupid, address.blockid, replaceselect , a);
                  if(replaceselect == 0)
                  {

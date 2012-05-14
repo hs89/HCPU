@@ -30,8 +30,9 @@ bool DEBUG_DFWD = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "../StatAssembly/64loopscalaradd.asm";
+string code_file = "../StatAssembly/64loopscalardiv.asm";
 string machine_code_file = "MACHINE_CODE";
+string data_memory_file = "../StatAssembly/data_memory-64.mem";
 /*  END FILE DEFS        */
 
 unsigned char PM[256]; //Program Memory Space
@@ -125,7 +126,7 @@ int main(int argc, char * argv[])
     
     loadCyclesPerInstruction(cycles_file);    
     loadProgramMemory(machine_code_file); 
-    loadDataMemory("data_memory.mem"); 
+    loadDataMemory(data_memory_file); 
     resetFlags();
     
     //printProgramMemory();
@@ -1580,7 +1581,7 @@ void loadDataMemory(string dm_file)
     }
     else
     {
-        cout<<"Unable to load Program Memory file"<<endl;
+        cout<<"Unable to load Data Memory file"<<endl;
         system("pause");
         exit(0);
     } 

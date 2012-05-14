@@ -31,8 +31,9 @@ bool DEBUG_ROB = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/mulloop.asm";
+string code_file = "../StatAssembly/64robloopdiv.asm";
 string machine_code_file = "MACHINE_CODE";
+string data_memory_file = "../StatAssembly/data_memory-64-rob.mem";
 /*  END FILE DEFS        */
 
 unsigned char PM[256]; //Program Memory Space
@@ -74,6 +75,7 @@ void printState(); //Debug code
 void loadCyclesPerInstruction(string); //Prototype to initialize the Cycles array
 void printCyclesPerInstruction(); //Debug code
 void loadProgramMemory(string); //Loads program memory from a file
+void loadDataMemory(string);
 void printProgramMemory(); //Prints program memory 
 void printDataMemory(); //Prints data memory
 void pipePrint(); //Prints the state of the pipeline
@@ -131,8 +133,9 @@ int main(int argc, char * argv[])
     
     loadCyclesPerInstruction(cycles_file);    
     loadProgramMemory(machine_code_file);  
+    loadDataMemory(data_memory_file);
     resetFlags();
-    
+    //PMEND = 0xFF;
     //printProgramMemory();
     //printCyclesPerInstruction(); //Prints cycles per instruction for each instruction
     //testRegisters(); //Tests the Register File Class   
@@ -400,6 +403,7 @@ void clockPipeline()
      }
      else
      {
+         cout<<"ROB size = "<<ROB.size()<<endl;
          if(ROB.size() > 0)
          {
              PC_STALLED = true;
@@ -536,7 +540,6 @@ void iF(Stage & stagenum)
       stagenum.operand1 = (PM[PC] & 0x0F);
       stagenum.operand2 = 0x00;
       stagenum.cyclesRemaining = Cycles[stagenum.opcode];
-      Statistics.instructionIssued(PM[PC]);
       
       if(stagenum.opcode == 0x02 || //LD/ST
          stagenum.opcode == 0x03 || //I/O
@@ -930,8 +933,15 @@ void execute(Stage & stagenum)
               break;
          case 0x0E:
               //DIV
-              stagenum.result1 = (stagenum.data_in1 / stagenum.data_in2);
-              stagenum.result2 = (stagenum.data_in1 % stagenum.data_in2);
+              if(stagenum.data_in1 == 0 || stagenum.data_in2 == 0)
+              {
+                   stagenum.result1 = stagenum.result2 = 0;
+              }
+              else
+              {
+                  stagenum.result1 = (stagenum.data_in1 / stagenum.data_in2);
+                  stagenum.result2 = (stagenum.data_in1 % stagenum.data_in2);
+              }
               if(stagenum.result1 == 0x00 && stagenum.result2 == 0x00 && stagenum.cyclesRemaining == 3) Z_FLAG = 1;
               break;
          case 0x0F:
@@ -943,6 +953,7 @@ void execute(Stage & stagenum)
 
 void MWB(Stage & stagenum)
 {
+     Statistics.instructionIssued((stagenum.opcode<<4)|(stagenum.operand1));
       switch((int)stagenum.opcode)
       {
          case 0x02:
@@ -1138,6 +1149,7 @@ void WB(Stage & stagenum)
                   //also need to clear any currently speculating instructions from the pipeline
                   clearSpeculativeFromPipeline();
                   SPECULATE = false;
+                  WRITE_BACK_ROB = false;
                   
               }
               //PIPE_FULL = false;
@@ -1694,6 +1706,31 @@ void loadCyclesPerInstruction(string cycle_file)
          system("pause");
          exit(0);
      }
+}
+
+void loadDataMemory(string dm_file)
+{
+    ifstream infile(dm_file.c_str());
+    string line;
+    int i = 0;
+    unsigned char temp;
+    if(infile.is_open())
+    {
+        while(infile.good())
+        {
+            getline(infile, line);
+            temp = strtol((const char*)line.c_str(),NULL,16);
+            DM[i] = temp;
+            i++;
+        }
+        infile.close();
+    }
+    else
+    {
+        cout<<"Unable to load Data Memory file"<<endl;
+        system("pause");
+        exit(0);
+    } 
 }
 
 void loadProgramMemory(string mc_file)

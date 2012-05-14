@@ -30,7 +30,7 @@ bool DEBUG_DFWD = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "Assembly/muldivloop.asm";
+string code_file = "../StatAssembly/64loopscalaradd.asm";
 string machine_code_file = "MACHINE_CODE";
 /*  END FILE DEFS        */
 
@@ -68,6 +68,7 @@ void printState(); //Debug code
 void loadCyclesPerInstruction(string); //Prototype to initialize the Cycles array
 void printCyclesPerInstruction(); //Debug code
 void loadProgramMemory(string); //Loads program memory from a file
+void loadDataMemory(string); //Loads data memory from a file
 void printProgramMemory(); //Prints program memory 
 void printDataMemory(); //Prints data memory
 void pipePrint(); //Prints the state of the pipeline
@@ -123,7 +124,8 @@ int main(int argc, char * argv[])
     cout<<"Assembled Successfully -- type ppm to view program memory"<<endl;
     
     loadCyclesPerInstruction(cycles_file);    
-    loadProgramMemory(machine_code_file);  
+    loadProgramMemory(machine_code_file); 
+    loadDataMemory("data_memory.mem"); 
     resetFlags();
     
     //printProgramMemory();
@@ -1558,6 +1560,30 @@ void loadCyclesPerInstruction(string cycle_file)
          system("pause");
          exit(0);
      }
+}
+void loadDataMemory(string dm_file)
+{
+    ifstream infile(dm_file.c_str());
+    string line;
+    int i = 0;
+    unsigned char temp;
+    if(infile.is_open())
+    {
+        while(infile.good())
+        {
+            getline(infile, line);
+            temp = strtol((const char*)line.c_str(),NULL,16);
+            DM[i] = temp;
+            i++;
+        }
+        infile.close();
+    }
+    else
+    {
+        cout<<"Unable to load Program Memory file"<<endl;
+        system("pause");
+        exit(0);
+    } 
 }
 
 void loadProgramMemory(string mc_file)

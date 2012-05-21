@@ -33,11 +33,11 @@ int main(int argc, char * argv[])
     
     cout<<"\nAssembled Successfully -- type ppm to view program memory"<<endl;
     
-    Core *SP = new Core("SNODE_MC", "sp_rfile",  s_asm.TISRA, s_asm.RISRA);
-    Core *P0 = new Core("PNODE_MC", "pn0_rfile", p_asm.TISRA, p_asm.RISRA);
-    Core *P1 = new Core("PNODE_MC", "pn1_rfile", p_asm.TISRA, p_asm.RISRA);
-    Core *P2 = new Core("PNODE_MC", "pn2_rfile", p_asm.TISRA, p_asm.RISRA);
-    Core *P3 = new Core("PNODE_MC", "pn3_rfile", p_asm.TISRA, p_asm.RISRA);
+    Core *SP = new Core("SNODE_MC", "../StatAssembly/Multicore/data_mem_16-sp.mem", "sp_rfile",  s_asm.TISRA, s_asm.RISRA);
+    Core *P0 = new Core("PNODE_MC", "../StatAssembly/Multicore/data_mem_16-p0.mem", "pn0_rfile", p_asm.TISRA, p_asm.RISRA);
+    Core *P1 = new Core("PNODE_MC", "../StatAssembly/Multicore/data_mem_16-p1.mem", "pn1_rfile", p_asm.TISRA, p_asm.RISRA);
+    Core *P2 = new Core("PNODE_MC", "../StatAssembly/Multicore/data_mem_16-p2.mem", "pn2_rfile", p_asm.TISRA, p_asm.RISRA);
+    Core *P3 = new Core("PNODE_MC", "../StatAssembly/Multicore/data_mem_16-p3.mem", "pn3_rfile", p_asm.TISRA, p_asm.RISRA);
     
     cores.push_back(SP);
     cores.push_back(P0);

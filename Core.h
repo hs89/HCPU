@@ -71,7 +71,7 @@ class Core
         Stats Statistics; //Create a statistics object
         /* END GLOBAL VAR DEFS */
         
-        Core::Core(string, string, unsigned char, unsigned char);
+        Core::Core(string, string, string, unsigned char, unsigned char);
         Core::Core();
         int Core::clockCore();
          
@@ -79,6 +79,7 @@ class Core
         int Core::InterruptRegistered();
         bool Core::checkForPriorOutput(int);
         int Core::getDFWDstatenum(Stage);
+        void Core::loadDataMemory(string);
         void Core::testRegisters(); //Prototype for register class test -- debug code
         void Core::printState(); //Debug code
         void Core::loadCyclesPerInstruction(string); //Prototype to initialize the Cycles array

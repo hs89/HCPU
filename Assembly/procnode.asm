@@ -53,4 +53,17 @@
     LDI R1,F0;
     ST R0,R1,00; set a flag at 0xF0 to indicate code uploaded (busy loop checks for this)
     RETI;
+:initDMTX;
+    LDI R0,01;
+    OUT R0,03;
+    RET;
+:sendToSP;
+    OUT R0,02;
+    OUT R1,02;
+    OUT R2,02;
+    OUT R3,02;
+    RET;
+:doneTX;
+    LDI R0,01;
+    OUT R0,05;
 END;

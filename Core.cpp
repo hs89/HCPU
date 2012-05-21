@@ -7,7 +7,7 @@
 
 
 #include "Core.h"
-Core::Core(string mc_file, string rfile, unsigned char TISRA, unsigned char RISRA)
+Core::Core(string mc_file, string data_memory_file, string rfile, unsigned char TISRA, unsigned char RISRA)
 {
     
     TXISRADDR = TISRA;
@@ -55,6 +55,7 @@ Core::Core(string mc_file, string rfile, unsigned char TISRA, unsigned char RISR
     machine_code_file = mc_file;
     loadCyclesPerInstruction(cycles_file);    
     loadProgramMemory(machine_code_file);  
+    loadDataMemory(data_memory_file);
     resetFlags();
     
     wroteToIO = readFromIO = false;
@@ -1416,6 +1417,30 @@ void Core::loadCyclesPerInstruction(string cycle_file)
          system("pause");
          exit(0);
      }
+}
+void Core::loadDataMemory(string dm_file)
+{
+    ifstream infile(dm_file.c_str());
+    string line;
+    int i = 0;
+    unsigned char temp;
+    if(infile.is_open())
+    {
+        while(infile.good())
+        {
+            getline(infile, line);
+            temp = strtol((const char*)line.c_str(),NULL,16);
+            DM[i] = temp;
+            i++;
+        }
+        infile.close();
+    }
+    else
+    {
+        cout<<"Unable to load Data Memory file"<<endl;
+        system("pause");
+        exit(0);
+    } 
 }
 
 void Core::loadProgramMemory(string mc_file)

@@ -75,10 +75,10 @@ void Registers::setRegister(int rnum, char rval)
 }
 void Registers::print()
 {
-     cout<<"R0 = "<<hex<<(int)R0<<endl;
-     cout<<"R1 = "<<hex<<(int)R1<<endl;
-     cout<<"R2 = "<<hex<<(int)R2<<endl;
-     cout<<"R3 = "<<hex<<(int)R3<<endl;
+     printf("R0 = %02X\n",R0);
+     printf("R1 = %02X\n",R1);
+     printf("R2 = %02X\n",R2);
+     printf("R3 = %02X\n",R3);
 }
 
 void Registers::resetRegisters()

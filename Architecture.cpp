@@ -30,9 +30,9 @@ bool DEBUG_DFWD = true;
 string register_file = "registerfile";
 string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
-string code_file = "../StatAssembly/64loopscalardiv.asm";
+string code_file = "Testcode/SIMDR.asm";
 string machine_code_file = "MACHINE_CODE";
-string data_memory_file = "../StatAssembly/data_memory-64.mem";
+string data_memory_file = "../StatAssembly/data_memory-16.mem";
 /*  END FILE DEFS        */
 
 unsigned char PM[256]; //Program Memory Space
@@ -65,6 +65,9 @@ bool RUN_TO_COMPLETION_ASKED = false;
 
 /* FUNCTION PROTOTYPE DEFS */
 void testRegisters(); //Prototype for register class test -- debug code
+unsigned char SIMDAdd(unsigned char, unsigned char,unsigned char&,unsigned char&);
+unsigned char SIMDSub(unsigned char, unsigned char,unsigned char&,unsigned char&);
+void SIMDRot(unsigned char, unsigned char,unsigned char&,unsigned char&, unsigned char&,unsigned char&);
 void printState(); //Debug code
 void loadCyclesPerInstruction(string); //Prototype to initialize the Cycles array
 void printCyclesPerInstruction(); //Debug code
@@ -462,8 +465,7 @@ void iF(Stage & stagenum)
       
       if(stagenum.opcode == 0x02 || //LD/ST
          stagenum.opcode == 0x03 || //I/O
-         stagenum.opcode == 0x05 || //JMP/BR
-         stagenum.opcode == 0x07  ) //SIMD
+         stagenum.opcode == 0x05  ) //JMP/BR
       {
          //Will need another instruction word
          PC++;
@@ -525,7 +527,12 @@ void iF(Stage & stagenum)
                   break;
              case 0x07:
                   //SIMD
-                  //TODO: Implement Later
+                  //SIMD uses all registers so we will need to stop filling the pipeline
+                  //and stall the PC untill the SIMD is done writing back
+                  STOP_FILLING_PIPELINE = 1;
+                  PC_STALLED = 1;
+                  stagenum.reg1 = 0x00;
+                  stagenum.reg2 = 0x01;
                   break;
              case 0x08://ADD
              case 0x09://SUB
@@ -653,7 +660,9 @@ void DOF(Stage & stagenum)
                   break;
              case 0x07:
                   //SIMD
-                  //TODO: Implement Later
+                  if(!stagenum.hasop1) stagenum.data_in1 = RF.getRegister(stagenum.reg1);
+                  if(!stagenum.hasop2) stagenum.data_in1 = RF.getRegister(stagenum.reg2);
+                  stagenum.hasop1 = stagenum.hasop2 = true;
                   break;
              case 0x08://ADD
              case 0x09://SUB
@@ -777,7 +786,18 @@ void execute(Stage & stagenum)
               break;
          case 0x07:
               //SIMD
-              
+              switch(stagenum.operand1 & 0x03)
+              {
+                  case 0x00: //SIMDAdd
+                       stagenum.result1 = SIMDAdd(stagenum.data_in1,stagenum.data_in2,stagenum.result2,stagenum.result3);
+                       break;
+                  case 0x01: //SIMDSub
+                       stagenum.result1 = SIMDSub(stagenum.data_in1,stagenum.data_in2,stagenum.result2,stagenum.result3);
+                       break;
+                  case 0x02: //SIMDRot
+                       SIMDRot(stagenum.data_in1, stagenum.data_in2, stagenum.result1, stagenum.result2, stagenum.result3, stagenum.result4);
+                       break;
+              }
               break;
          case 0x08:
               //ADD
@@ -1019,6 +1039,22 @@ void WB(Stage & stagenum)
               break;
          case 0x07:
               //SIMD
+              if((stagenum.operand1 & 0x03) != 0x02) //not rotate
+              {
+                  RF.setRegister(0,stagenum.result1);
+                  RF.setRegister(1,0x00); // if not rotate, reset R1
+                  RF.setRegister(2,stagenum.result2);
+                  RF.setRegister(3,stagenum.result3);
+              }
+              else
+              {
+                  RF.setRegister(0,stagenum.result1);
+                  RF.setRegister(1,stagenum.result2);
+                  RF.setRegister(2,stagenum.result3);
+                  RF.setRegister(3,stagenum.result4);
+              }
+              STOP_FILLING_PIPELINE = 0;
+              PC_STALLED = 0;
               break;
          case 0x08: //ADD
          case 0x09: //SUB
@@ -1118,6 +1154,10 @@ bool checkDependence(Stage & stagenum)
               break;
          case 0x07:
               //SIMD
+              dep_on_op1 = determineIfDependent(index,0);
+              dep_on_op2 = determineIfDependent(index,1);
+              if(dep_on_op1) op1regnum = 0;
+              if(dep_on_op2) op2regnum = 1;
               break;
          case 0x08://ADD
          case 0x09://SUB
@@ -1448,6 +1488,127 @@ void serviceInterrupt(char startloc, int priority)
      PIPE_STALLED = 0;
      INTERRUPTED = 0;
      
+}
+
+unsigned char SIMDAdd(unsigned char one, unsigned char two, unsigned char & status1, unsigned char & status2)
+{
+         unsigned char A0,A1,A2,A3,B0,B1,B2,B3,R0,R1,R2,R3;
+         unsigned char flags0,flags1,flags2,flags3;
+         status1 = status2 = flags0 = flags1 = flags2 = flags3 = 0x00;
+         //flag bits will be CNZV
+         A0 = one & 0x03;
+         A1 = (one & 0x0C)>>2;
+         A2 = (one & 0x30)>>4;
+         A3 = (one & 0xC0)>>6;
+         B0 = two & 0x03;
+         B1 = (two & 0x0C)>>2;
+         B2 = (two & 0x30)>>4;
+         B3 = (two & 0xC0)>>6;
+         R0 = (A0 + B0)&0x03;
+         R1 = (A1 + B1)&0x03;
+         R2 = (A2 + B2)&0x03;
+         R3 = (A3 + B3)&0x03;
+         
+         //create C flag
+         if((A0+B0)>0x03) flags0 |= 0x08;
+         if((A1+B1)>0x03) flags1 |= 0x08;
+         if((A2+B2)>0x03) flags2 |= 0x08;
+         if((A3+B3)>0x03) flags3 |= 0x08;
+         
+         //create Z flag
+         if(R0 == 0x00) flags0 |= 0x02;
+         if(R1 == 0x00) flags1 |= 0x02;
+         if(R2 == 0x00) flags2 |= 0x02;
+         if(R3 == 0x00) flags3 |= 0x02;
+         
+         //N flag is always 0
+         flags0 &= 0x0B;
+         flags1 &= 0x0B;
+         flags2 &= 0x0B;
+         flags3 &= 0x0B;
+         
+         //create V flag -- overflow if carry into MSB and out of MSB
+         if(((A0+B0)>0x03) && ((A0&0x01)+(B0&0x01))>0x01) flags0 |= 0x01;
+         if(((A1+B1)>0x03) && ((A1&0x01)+(B1&0x01))>0x01) flags1 |= 0x01;
+         if(((A2+B2)>0x03) && ((A2&0x01)+(B2&0x01))>0x01) flags2 |= 0x01;
+         if(((A3+B3)>0x03) && ((A3&0x01)+(B3&0x01))>0x01) flags3 |= 0x01;
+         
+         status1 = flags0 | (flags1<<4);
+         status2 = flags2 | (flags3<<4);
+         
+         return (R0 | (R1<<2) | (R2<<4) | (R3<<6));
+}
+
+unsigned char SIMDSub(unsigned char one, unsigned char two, unsigned char & status1, unsigned char & status2)
+{
+         unsigned char A0,A1,A2,A3,B0,B1,B2,B3,R0,R1,R2,R3;
+         unsigned char flags0,flags1,flags2,flags3;
+         status1 = status2 = flags0 = flags1 = flags2 = flags3 = 0x00;
+         A0 = one & 0x03;
+         A1 = (one & 0x0C)>>2;
+         A2 = (one & 0x30)>>4;
+         A3 = (one & 0xC0)>>6;
+         B0 = two & 0x03;
+         B1 = (two & 0x0C)>>2;
+         B2 = (two & 0x30)>>4;
+         B3 = (two & 0xC0)>>6;
+         R0 = (A0 - B0)&0x03;
+         R1 = (A1 - B1)&0x03;
+         R2 = (A2 - B2)&0x03;
+         R3 = (A3 - B3)&0x03;
+         
+         //only a z flag for this operation
+         //create Z flag
+         if(R0 == 0x00) flags0 |= 0x02;
+         if(R1 == 0x00) flags1 |= 0x02;
+         if(R2 == 0x00) flags2 |= 0x02;
+         if(R3 == 0x00) flags3 |= 0x02;
+         
+         status1 = flags0 | (flags1<<4);
+         status2 = flags2 | (flags3<<4);
+         
+         return (R0 | (R1<<2) | (R2<<4) | (R3<<6));
+}
+
+void SIMDRot(unsigned char one, unsigned char two, unsigned char & result1, unsigned char & result2, unsigned char & status1, unsigned char & status2)
+{
+         unsigned char mapping[4] = { 0x00, 0x02, 0x01, 0x03 };
+         unsigned char A0,A1,A2,A3,B0,B1,B2,B3,R0,R1,R2,R3,R4,R5,R6,R7;
+         unsigned char flags0,flags1,flags2,flags3,flags4,flags5,flags6,flags7;
+         status1 = status2 = flags0 = flags1 = flags2 = flags3 = flags4 = flags5 = flags6 = flags7 = 0x00;
+         
+         A0 = one & 0x03;
+         A1 = (one & 0x0C)>>2;
+         A2 = (one & 0x30)>>4;
+         A3 = (one & 0xC0)>>6;
+         B0 = two & 0x03;
+         B1 = (two & 0x0C)>>2;
+         B2 = (two & 0x30)>>4;
+         B3 = (two & 0xC0)>>6;
+         R0 = mapping[A0];
+         R1 = mapping[A1];
+         R2 = mapping[A2];
+         R3 = mapping[A3];
+         R4 = mapping[B0];
+         R5 = mapping[B1];
+         R6 = mapping[B2];
+         R7 = mapping[B3];
+         
+         //Only Z flag for this operation
+         if(R0 == 0x00) flags0 |= 0x01;
+         if(R1 == 0x00) flags1 |= 0x01;
+         if(R2 == 0x00) flags2 |= 0x01;
+         if(R3 == 0x00) flags3 |= 0x01;
+         if(R4 == 0x00) flags4 |= 0x01;
+         if(R5 == 0x00) flags5 |= 0x01;
+         if(R6 == 0x00) flags6 |= 0x01;
+         if(R7 == 0x00) flags7 |= 0x01;
+         
+         status1 = flags0 | (flags1<<1) | (flags2<<2) | (flags3<<3);
+         status2 = flags4 | (flags5<<1) | (flags6<<2) | (flags7<<3);
+         
+         result1 = (R0 | (R1<<2) | (R2<<4) | (R3<<6));
+         result2 = (R4 | (R5<<2) | (R6<<4) | (R7<<6));
 }
 
 void registerInterrupts()

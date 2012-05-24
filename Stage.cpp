@@ -14,6 +14,8 @@ Stage::Stage(int num)
      operand2 = 0x00;
      result1 = 0x00;
      result2 = 0x00;
+     result3 = 0x00;
+     result4 = 0x00;
      data_in1 = 0x00;
      data_in2 = 0x00;
      state = 0;
@@ -50,6 +52,8 @@ void Stage::reset()
      operand2 = 0x00;
      result1 = 0x00;
      result2 = 0x00;
+     result3 = 0x00;
+     result4 = 0x00;
      data_in1 = 0x00;
      data_in2 = 0x00;
      state = 0;

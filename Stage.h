@@ -19,6 +19,8 @@ class Stage
              unsigned char data_in2;
              unsigned char result1;
              unsigned char result2;
+             unsigned char result3;
+             unsigned char result4;
              unsigned int  state;
              bool hasop1,hasop2;
              int dfwd;

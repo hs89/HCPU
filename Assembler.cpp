@@ -251,6 +251,7 @@ void Assembler::createInstructionWords()
                      iw1 = (opcode[0] & 0xFF);
                break;
           case 0x70: //SIMD
+                     iw1 = (opcode[0] & 0xFF);
                break;
           
      }

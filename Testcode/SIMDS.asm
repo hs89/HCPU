@@ -1,0 +1,4 @@
+LDI R0,FF;
+LDI R1,FF;
+SIMDS;
+END;

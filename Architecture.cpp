@@ -32,7 +32,7 @@ string opcode_file = "opcodes";
 string cycles_file = "cyclesperinstruction";
 string code_file = "Testcode/SIMDR.asm";
 string machine_code_file = "MACHINE_CODE";
-string data_memory_file = "../StatAssembly/data_memory-16.mem";
+string data_memory_file = "data_memory.mem";
 /*  END FILE DEFS        */
 
 unsigned char PM[256]; //Program Memory Space

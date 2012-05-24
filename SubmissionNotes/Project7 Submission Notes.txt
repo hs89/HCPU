@@ -1,0 +1,46 @@
+Holden Sandlar
+Advanced Computer Architecture - 0301-810
+Project 7 - SIMD
+
+
+
+Paper response can be found in:
+"Docs/surveyofmulticoreresponse.pdf"
+
+I have included a zip of the code and data memory used for the benchmarking results
+The zip can be found under the name "StatAssembly.rar"
+
+I have been able to implement SIMD to the desired specification. The pneumonics for the
+assembler are SIMDA, SIMDS, SIMDR
+
+For the SIMDRotate instruction data set rotation is performed on both R0 and R1, with
+status bits being saved into R2 and R3. Those status bits only indicate the Z flag because
+no other flag is valid for the SIMDR instruction. That said, R2 will hold status bits 0000ZZZZ for
+the rotate done on R0 where the most significant Z indicates a zero in data set 3 and the least
+significant indicates a zero in data set 0. R3 holds the status bits for the rotate done on R1.
+
+SIMDA -
+R0 = R0 + R1 broken into data sets
+Status flags exist in R2 and R3 after the instruction is completed
+Status flags are organized in CNZV order with
+R3 = CNZVCNZV for DS1DS0 respectively
+R2 = CNZVCNZV for DS3DS2 respectively
+
+SIMDS -
+R0 = R0 - R1 broken into data sets
+Status flags exist in R2 and R3 after the instruction is completed
+Status flags are organized in CNZV the same way as with SIMDA
+
+Statistics have been gathered for 16,36,and 64 element loops. The code for these loops
+can be found in the StatAssembly.rar file under the names "16loopsimdadd.asm","16loopsimdsub.asm", etc.
+The statistics gathered can be found in "Docs/SIMD-Stats.xlsx" - the first sheet is results gathered, the second
+sheet organizes the results into the desired bar graphs.
+
+If you would like to test the SIMD instructions for yourself run:
+"HCPU.exe Testcode/SIMDA.asm"
+"HCPU.exe Testcode/SIMDS.asm"
+"HCPU.exe Testcode/SIMDR.asm"
+Code in those files is just loading in values to R0,R1 and running an SIMD operation
+You can see the results directly in the registers after the operation has completed.
+
+Enjoy!
